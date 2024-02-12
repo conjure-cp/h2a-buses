@@ -1,0 +1,17 @@
+@import 'leaflet/dist/leaflet.css';
+@import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
+@import '@/assets/tailwind.css' layer(tailwind);
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow-y: hidden;
+  /* margin: 0; */
+}
+
+#map {
+  position: relative;
+  height: 100vh;
+}
