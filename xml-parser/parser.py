@@ -49,5 +49,5 @@ bus_line_details = {
     "stops": bus_stop_locations 
 }        
 
-with open(f"{os.getcwd()}/test-data/json/{service_code}.json", "w+") as outfile:
+with open(f"{os.getcwd()}/public/json/{service_code}.json", "w+") as outfile:
     json.dump(bus_line_details, outfile, indent=2)
