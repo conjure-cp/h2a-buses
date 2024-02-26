@@ -1,5 +1,15 @@
 <script setup lang="ts">
+interface Options {
+  lineName: string;
+  origin: string;
+  destination: string;
+}
+
+interface IProps {
+  options: Options[];
+}
 const modelVal = defineModel();
+const props = defineProps<IProps>();
 </script>
 <template>
   <form class="max-w-sm mx-auto flex flex-col">
@@ -13,10 +23,9 @@ const modelVal = defineModel();
       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
     >
       <option selected disabled value="">Please select a route</option>
-      <option :value="0">University of St. Andrews - Canongate Primary</option>
-      <option :value="1">Canongate Primary - University of St. Andrews</option>
-      <option :value="2">University of St. Andrews - Dundee</option>
-      <option :value="3">Dundee - University of St. Andrews</option>
+      <option v-for="(data, idx) in props.options" :value="idx">
+        {{ `${data.lineName}(${data.origin} - ${data.destination})` }}
+      </option>
     </select>
   </form>
 </template>
