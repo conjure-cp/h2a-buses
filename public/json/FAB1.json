@@ -1,0 +1,24 @@
+{
+  "service_code": "FAB1",
+  "line_name": "AB1",
+  "origin": "Ferrytoll Park and Ride",
+  "destination": "Edinburgh Park",
+  "stops": [
+    [
+      56.022402,
+      -3.406494
+    ],
+    [
+      55.987527,
+      -3.404281
+    ],
+    [
+      55.92775,
+      -3.30825
+    ],
+    [
+      55.927925,
+      -3.306828
+    ]
+  ]
+}

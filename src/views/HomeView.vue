@@ -5,6 +5,8 @@ import SelectForm from "@/components/SelectForm.vue";
 import { type BusLine } from "@/utils/types";
 import L, { type MapOptions, Marker, LatLng } from "leaflet";
 import "leaflet-routing-machine";
+import type { Layer } from "leaflet";
+import { map } from "leaflet";
 
 let demoMap: L.Map;
 let routingControl: L.Routing.Control | undefined;
@@ -49,30 +51,7 @@ availableLines.forEach((line) => {
       });
     });
 });
-/**
- * [0]: Uni St. Andrews - Canongate Primary
- * [1]: Canongate Primary - Uni St. Andrews
- * [2]: Uni St. Andrews - Dundee
- * [3]: Dundee - Uni St. Andrews
- */
-// const availableRoutes = [
-//   [
-//     L.latLng(56.34213143540303, -2.794179122392289),
-//     L.latLng(56.33379736952665, -2.81008349458336),
-//   ],
-//   [
-//     L.latLng(56.33379736952665, -2.81008349458336),
-//     L.latLng(56.34213143540303, -2.794179122392289),
-//   ],
-//   [
-//     L.latLng(56.34213143540303, -2.794179122392289),
-//     L.latLng(56.46224579941079, -2.9668353875167868),
-//   ],
-//   [
-//     L.latLng(56.46224579941079, -2.9668353875167868),
-//     L.latLng(56.34213143540303, -2.794179122392289),
-//   ],
-// ];
+
 const routeCoordinates = ref<LatLng[]>([]);
 const selectedRouteId = ref<number>();
 
@@ -97,6 +76,7 @@ watch(
       })
         .on("routesfound", (e) => {
           console.log("event", e);
+          let busStopMarkers = new L.FeatureGroup();
           routeCoordinates.value = e.routes[0].coordinates;
 
           // set the camera
@@ -113,6 +93,25 @@ watch(
               icon: busIcon,
             }
           ).addTo(demoMap);
+
+          demoMap.eachLayer((layer: Layer) => {
+            if (
+              layer instanceof Marker &&
+              !layer.getIcon().options.className?.includes("bus")
+            ) {
+              busStopMarkers.addLayer(layer);
+            }
+          });
+
+          demoMap.on("zoomend", () => {
+            console.log("zoom?", demoMap.getZoom());
+            if (demoMap.getZoom() < 12) {
+              console.log("Executing...");
+              demoMap.removeLayer(busStopMarkers);
+            } else {
+              demoMap.addLayer(busStopMarkers);
+            }
+          });
         })
         .addTo(demoMap);
 
