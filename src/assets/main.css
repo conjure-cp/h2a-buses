@@ -2,6 +2,7 @@
 @import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 @import "@/assets/fontawesome/css/all.min.css" layer(fontawesome);
 @import "@/assets/tailwind.css" layer(tailwind);
+@import "@/assets/themes/tailwind-light/theme.css" layer(prime);
 
 #app {
   display: flex;

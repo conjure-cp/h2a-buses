@@ -20,6 +20,7 @@
     "leaflet-routing-machine": "^3.2.12",
     "leaflet.animatedmarker": "^1.0.0",
     "pinia": "^2.1.7",
+    "primevue": "^3.49.1",
     "vue": "^3.4.15",
     "vue-router": "^4.2.5"
   },

@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import Card from "@/components/Card.vue";
-import SelectForm from "@/components/SelectForm.vue";
+import MultiSelect from "primevue/multiselect";
 import { type BusLine } from "@/utils/types";
-import L, { type MapOptions, Marker, LatLng } from "leaflet";
+import L, { type MapOptions, Marker, LatLng, Layer } from "leaflet";
 import "leaflet-routing-machine";
-import type { Layer } from "leaflet";
-import { map } from "leaflet";
 
 let demoMap: L.Map;
 let routingControl: L.Routing.Control | undefined;
@@ -22,35 +20,39 @@ const options: MapOptions = {
   zoom: 13,
 };
 
-const availableLines = ["F028", "F038", "F045", "F099"];
-const selectFormOptions = ref<
+const routeOptions = ref<
   {
-    lineName: string;
-    origin: string;
-    destination: string;
+    label: string;
+    value: number[][];
   }[]
 >([]);
+const selectedRoutes = ref([]);
 const availableRoutes: L.LatLng[][] = [];
 
-availableLines.forEach((line) => {
-  fetch(`json/${line}.json`)
-    .then((resp) => resp.json())
-    .then((data: BusLine) => {
-      // Collect lat & lng info
-      const route: L.LatLng[] = [];
-      data.stops.forEach((elem) => {
-        route.push(L.latLng(elem[0], elem[1]));
-      });
-      availableRoutes.push(route);
+fetch("json/available_lines.json")
+  .then((resp) => resp.json())
+  .then((data: any) => {
+    // fetch all available lines
+    data.lines.forEach((serviceCode: string) => {
+      // then iterate through the service codes to fetch related info
+      fetch(`json/${serviceCode}.json`)
+        .then((resp) => resp.json())
+        .then((data: BusLine) => {
+          // Collect lat & lng info
+          const route: L.LatLng[] = [];
+          data.stops.forEach((elem) => {
+            route.push(L.latLng(elem[0], elem[1]));
+          });
+          availableRoutes.push(route);
 
-      // Collect other info - lineNumber, origin, destination
-      selectFormOptions.value.push({
-        lineName: data.line_name,
-        origin: data.origin,
-        destination: data.destination,
-      });
+          // Collect other info - lineNumber, origin, destination
+          routeOptions.value.push({
+            label: `${data.line_name} ${data.origin} - ${data.destination}`,
+            value: data.stops,
+          });
+        });
     });
-});
+  });
 
 const routeCoordinates = ref<LatLng[]>([]);
 const selectedRouteId = ref<number>();
@@ -85,6 +87,7 @@ watch(
             (e.waypoints[0].latLng.lng + e.waypoints[1].latLng.lng) / 2
           );
           demoMap.setView(zoomCenter);
+          let zoomThreshold = demoMap.getZoom();
 
           // add the bus marker to the starting point
           busMarker = L.marker(
@@ -104,12 +107,10 @@ watch(
           });
 
           demoMap.on("zoomend", () => {
-            console.log("zoom?", demoMap.getZoom());
-            if (demoMap.getZoom() < 12) {
-              console.log("Executing...");
+            // TODO: Solve this duplicate layer problem!
+            demoMap.addLayer(busStopMarkers);
+            if (demoMap.getZoom() < zoomThreshold) {
               demoMap.removeLayer(busStopMarkers);
-            } else {
-              demoMap.addLayer(busStopMarkers);
             }
           });
         })
@@ -132,6 +133,13 @@ const moveMarker = () => {
   }
 };
 
+watch(
+  () => selectedRoutes.value.length,
+  () => {
+    console.log("selected routes", selectedRoutes.value);
+  }
+);
+
 onMounted(() => {
   demoMap = L.map("map", options);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -145,7 +153,20 @@ onMounted(() => {
   <div id="map"></div>
   <div class="absolute top-0 right-0 z-[1001] mt-2 mr-2">
     <Card :class="'flex flex-col'">
-      <SelectForm v-model="selectedRouteId" :options="selectFormOptions" />
+      <!-- <SelectForm v-model="selectedRouteId" :options="selectFormOptions" /> -->
+      <!-- TODO: Improve Chip display?? -->
+      <MultiSelect
+        v-model="selectedRoutes"
+        placeholder="Select Routes"
+        filter
+        :options="routeOptions"
+        optionLabel="label"
+        optionValue="value"
+        :maxSelectedLabels="3"
+        :selectionLimit="5"
+        :virtualScrollerOptions="{ itemSize: 25 }"
+        class="w-[32rem]"
+      />
       <button
         type="button"
         class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-32 flex items-center mt-2"
