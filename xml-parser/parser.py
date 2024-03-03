@@ -8,6 +8,7 @@ tag_prefix='{http://www.transxchange.org.uk/}'
 def extract_data(): 
     # F099S-None--SCFI-FI-2023-08-14-Fife_Timeplan_1408_2310-Transmill - Serviced Organisations?
     # F040-None--SCFI-FI-2023-08-14-Fife_Timeplan_1408_2310-Transmill - Serviced Organisations?
+    available_lines = []
     for filename in os.listdir(directory):
 
         tree = ET.parse(os.path.join(directory, filename))
@@ -16,7 +17,7 @@ def extract_data():
 
         # If Serviced Organisation, no need to parse
         if root.find(f'{tag_prefix}ServicedOrganisations'):
-            pass
+            continue
 
         # Get the first RouteSection
         route_links = root.find(f'{tag_prefix}RouteSections').find(f'{tag_prefix}RouteSection').findall(f'{tag_prefix}RouteLink')
@@ -53,8 +54,14 @@ def extract_data():
             "stops": bus_stop_locations 
         }        
 
+        available_lines.append(service_code)
+
         with open(f"{os.getcwd()}/public/json/{service_code}.json", "w+") as outfile:
             json.dump(bus_line_details, outfile, indent=2)
+    
+    with open(f"{os.getcwd()}/public/json/available_lines.json", "w+") as outfile:
+        available_lines.sort() # sort elements in alphabetical order
+        json.dump({ "lines": available_lines}, outfile, indent=2)
 
 
 if __name__ == '__main__':
