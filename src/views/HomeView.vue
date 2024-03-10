@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from "vue";
 import Card from "@/components/Card.vue";
 import MultiSelect from "primevue/multiselect";
-import { generateRoutingControl } from "@/routing/control";
+import { generateRoutingControl, addedRoutesCoords } from "@/routing/control";
 import { type BusLine } from "@/utils/types";
 import L, { type MapOptions, Marker, LatLng, Layer } from "leaflet";
 import "leaflet-routing-machine";
@@ -22,7 +22,7 @@ const routeOptions = ref<
   }[]
 >([]);
 const selectedRoutes = ref<LatLng[][]>([]);
-const addedRoutes: L.Control[] = [];
+const addedRoutes: L.Routing.Control[] = [];
 
 fetch("json/available_lines.json")
   .then((resp) => resp.json())
@@ -140,18 +140,26 @@ const findRoutes = () => {
   // Remove every control object added to map first
   while (addedRoutes.length > 0) {
     demoMap.removeControl(addedRoutes.shift()!);
+    addedRoutesCoords.shift();
   }
 
   if (selectedRoutes.value.length !== 0) {
     selectedRoutes.value.forEach((route: LatLng[]) => {
-      const control = generateRoutingControl(route, demoMap).addTo(demoMap);
-      control.hide();
-      addedRoutes.push(control);
+      const routingControl = generateRoutingControl(route, demoMap);
+      routingControl.addTo(demoMap);
+      routingControl.hide();
+      addedRoutes.push(routingControl);
     });
   } else {
     alert("Please select a route!");
   }
 };
+
+const simulate = () => {
+  console.log("added routes coords", addedRoutesCoords);
+};
+
+const stopSimulation = () => {};
 
 // watch(
 //   () => selectedRoutes.value.length,
@@ -187,14 +195,33 @@ onMounted(() => {
         :virtualScrollerOptions="{ itemSize: 25 }"
         class="w-[32rem]"
       />
-      <button
-        type="button"
-        class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
-        @click="findRoutes"
-      >
-        <i class="fa-solid fa-route mr-2" />
-        Find Routes
-      </button>
+      <div class="flex gap-x-4 justify-center mt-2">
+        <button
+          type="button"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          @click="findRoutes"
+        >
+          <i class="fa-solid fa-route mr-2" />
+          Find Routes
+        </button>
+
+        <button
+          type="button"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          @click="simulate"
+        >
+          <i class="fa-solid fa-play mr-2" />
+          Simulate
+        </button>
+        <button
+          type="button"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          @click="findRoutes"
+        >
+          <i class="fa-solid fa-stop mr-2" />
+          Stop
+        </button>
+      </div>
     </Card>
   </div>
 </template>
