@@ -3,9 +3,9 @@ import L, { type MapOptions, Marker, LatLng, Layer } from "leaflet";
 import "leaflet-routing-machine";
 
 export const addedRoutesCoords: L.LatLng[][] = [];
+export const busMarkers: Marker[] = [];
 
 export const generateRoutingControl = (waypoints: L.LatLng[], map: L.Map) => {
-  let coordinates: LatLng[] = [];
 
   const routingControl = L.Routing.control({
     waypoints: waypoints,
@@ -27,7 +27,7 @@ export const routesFoundCallback = (e: any, map: L.Map) => {
       className: `busIcon${i}`,
     });
 
-    L.marker(
+    const marker = L.marker(
       [
         e.waypoints[0].latLng.lat + i / 1000,
         e.waypoints[0].latLng.lng + i / 1000,
@@ -35,7 +35,9 @@ export const routesFoundCallback = (e: any, map: L.Map) => {
       {
         icon: icon,
       }
-    ).addTo(map);
+    )
+    busMarkers.push(marker);
+    marker.addTo(map)
   }
 
   //set the camera

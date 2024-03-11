@@ -2,7 +2,11 @@
 import { onMounted, ref, watch } from "vue";
 import Card from "@/components/Card.vue";
 import MultiSelect from "primevue/multiselect";
-import { generateRoutingControl, addedRoutesCoords } from "@/routing/control";
+import {
+  generateRoutingControl,
+  addedRoutesCoords,
+  busMarkers,
+} from "@/routing/control";
 import { type BusLine } from "@/utils/types";
 import L, { type MapOptions, Marker, LatLng, Layer } from "leaflet";
 import "leaflet-routing-machine";
@@ -156,6 +160,13 @@ const findRoutes = () => {
 };
 
 const simulate = () => {
+  // addedRoutesCoords.forEach((coordArr: LatLng[], i: number) => {
+  //   coordArr.forEach((coord: LatLng, j: number) => {
+  //     setTimeout(() => {
+  //       busMarker!.setLatLng([coord.lat, coord.lng]);
+  //     }, 100 * idx);
+  //   });
+  // });
   console.log("added routes coords", addedRoutesCoords);
 };
 
