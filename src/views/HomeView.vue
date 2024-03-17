@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref } from "vue";
 import Card from "@/components/Card.vue";
 import MultiSelect from "primevue/multiselect";
 import {
@@ -52,87 +52,6 @@ fetch("json/available_lines.json")
     });
   });
 
-// TODO: remove this code block
-// const routeCoordinates = ref<LatLng[]>([]);
-// const selectedRouteId = ref<number>();
-
-// watch(
-//   () => selectedRouteId.value,
-//   () => {
-//     // If there is a route, remove it from the map
-//     if (routingControl !== undefined) {
-//       demoMap.removeControl(routingControl);
-//       routingControl = undefined;
-//     }
-
-//     if (busMarker !== undefined) {
-//       demoMap.removeLayer(busMarker);
-//       busMarker = undefined;
-//     }
-
-//     // calculate the route
-//     if (selectedRouteId.value !== undefined) {
-//       // will be removed
-//       routingControl = L.Routing.control({
-//         waypoints: selectedRoutes.value[selectedRouteId.value as number],
-//       })
-//         .on("routesfound", (e) => {
-//           console.log("event", e);
-//           let busStopMarkers = new L.FeatureGroup();
-//           routeCoordinates.value = e.routes[0].coordinates;
-
-//           // set the camera
-//           const zoomCenter = L.latLng(
-//             (e.waypoints[0].latLng.lat + e.waypoints[1].latLng.lat) / 2,
-//             (e.waypoints[0].latLng.lng + e.waypoints[1].latLng.lng) / 2
-//           );
-//           demoMap.setView(zoomCenter);
-//           let zoomThreshold = demoMap.getZoom();
-
-//           // add the bus marker to the starting point
-//           busMarker = L.marker(
-//             [e.waypoints[0].latLng.lat, e.waypoints[0].latLng.lng],
-//             {
-//               icon: busIcon,
-//             }
-//           ).addTo(demoMap);
-
-//           demoMap.eachLayer((layer: Layer) => {
-//             if (
-//               layer instanceof Marker &&
-//               !layer.getIcon().options.className?.includes("bus")
-//             ) {
-//               busStopMarkers.addLayer(layer);
-//             }
-//           });
-
-//           demoMap.on("zoomend", () => {
-//             // TODO: Solve this duplicate layer problem!
-//             demoMap.addLayer(busStopMarkers);
-//             if (demoMap.getZoom() < zoomThreshold) {
-//               demoMap.removeLayer(busStopMarkers);
-//             }
-//           });
-//         })
-//         .addTo(demoMap);
-
-//       routingControl.hide();
-//     }
-//   }
-// );
-
-// const moveMarker = () => {
-//   if (routeCoordinates.value.length !== 0) {
-//     routeCoordinates.value.forEach((coord: LatLng, idx: number) => {
-//       setTimeout(() => {
-//         busMarker!.setLatLng([coord.lat, coord.lng]);
-//       }, 100 * idx);
-//     });
-//   } else {
-//     alert("Please select a route!");
-//   }
-// };
-
 const findRoutes = () => {
   // TODO: Existing layers should also be removed
   demoMap.eachLayer((layer: Layer) => {
@@ -160,24 +79,27 @@ const findRoutes = () => {
 };
 
 const simulate = () => {
-  // addedRoutesCoords.forEach((coordArr: LatLng[], i: number) => {
-  //   coordArr.forEach((coord: LatLng, j: number) => {
-  //     setTimeout(() => {
-  //       busMarker!.setLatLng([coord.lat, coord.lng]);
-  //     }, 100 * idx);
-  //   });
-  // });
-  console.log("added routes coords", addedRoutesCoords);
+  addedRoutesCoords.forEach((coordArr: LatLng[], i: number) => {
+    coordArr.forEach(async (coord: LatLng, j: number) => {
+      setTimeout(() => {
+        busMarkers[i * 3].setLatLng([coord.lat, coord.lng]);
+      }, 100 * j);
+
+      // await sleep(1000);
+
+      setTimeout(() => {
+        busMarkers[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
+      }, 150 * j);
+
+      // await sleep(1000);
+
+      setTimeout(() => {
+        busMarkers[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
+      }, 200 * j);
+    });
+  });
 };
-
 const stopSimulation = () => {};
-
-// watch(
-//   () => selectedRoutes.value.length,
-//   () => {
-//     console.log("selected routes", selectedRoutes.value);
-//   }
-// );
 
 onMounted(() => {
   demoMap = L.map("map", options);
