@@ -1,8 +1,9 @@
 import { busIconColors } from "@/utils/helper";
-import L, { type MapOptions, Marker, LatLng, Layer } from "leaflet";
+import L, { type LatLng, Marker, Layer } from "leaflet";
 import "leaflet-routing-machine";
 
 export const addedRoutesCoords: L.LatLng[][] = [];
+export const addedRoutesCoordsReverse: L.LatLng[][] = [];
 export const busMarkers: Marker[] = [];
 
 export const generateRoutingControl = (waypoints: L.LatLng[], map: L.Map) => {
@@ -12,6 +13,10 @@ export const generateRoutingControl = (waypoints: L.LatLng[], map: L.Map) => {
   }).on("routesfound", (e) => {
     routesFoundCallback(e, map);
     addedRoutesCoords.push(e.routes[0].coordinates);
+    addedRoutesCoordsReverse.push(e.routes[0].coordinates.slice().reverse())
+  }).on("routingerror", (_err) => {
+    console.log("An error occured while routing", _err)
+    // throw(_err)
   });
 
   return routingControl;

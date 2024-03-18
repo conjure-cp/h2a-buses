@@ -5,6 +5,7 @@ import MultiSelect from "primevue/multiselect";
 import {
   generateRoutingControl,
   addedRoutesCoords,
+  addedRoutesCoordsReverse,
   busMarkers,
 } from "@/routing/control";
 import { type BusLine } from "@/utils/types";
@@ -12,7 +13,6 @@ import L, { type MapOptions, Marker, LatLng, Layer } from "leaflet";
 import "leaflet-routing-machine";
 
 let demoMap: L.Map;
-// let busMarker: Marker | undefined;
 
 const options: MapOptions = {
   center: L.latLng(56.34213143540303, -2.794179122392289),
@@ -27,6 +27,8 @@ const routeOptions = ref<
 >([]);
 const selectedRoutes = ref<LatLng[][]>([]);
 const addedRoutes: L.Routing.Control[] = [];
+
+const stopSim = ref(false);
 
 fetch("json/available_lines.json")
   .then((resp) => resp.json())
@@ -60,10 +62,16 @@ const findRoutes = () => {
     }
   });
 
+  // pop every element from the bus marker arr
+  while (busMarkers.length > 0) {
+    busMarkers.shift();
+  }
+
   // Remove every control object added to map first
   while (addedRoutes.length > 0) {
     demoMap.removeControl(addedRoutes.shift()!);
     addedRoutesCoords.shift();
+    addedRoutesCoordsReverse.shift();
   }
 
   if (selectedRoutes.value.length !== 0) {
@@ -79,8 +87,10 @@ const findRoutes = () => {
 };
 
 const simulate = () => {
+  let numSelectedRoutes = addedRoutesCoords.length;
   addedRoutesCoords.forEach((coordArr: LatLng[], i: number) => {
-    coordArr.forEach(async (coord: LatLng, j: number) => {
+    let coordArrLen = coordArr.length;
+    coordArr.forEach((coord: LatLng, j: number) => {
       setTimeout(() => {
         busMarkers[i * 3].setLatLng([coord.lat, coord.lng]);
       }, 100 * j);
@@ -89,17 +99,45 @@ const simulate = () => {
 
       setTimeout(() => {
         busMarkers[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
-      }, 150 * j);
+      }, 125 * j);
 
       // await sleep(1000);
 
       setTimeout(() => {
         busMarkers[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
-      }, 200 * j);
+        if (i === numSelectedRoutes - 1 && j === coordArrLen - 1) {
+          simulateReverse();
+        }
+      }, 150 * j);
     });
   });
 };
-const stopSimulation = () => {};
+
+const simulateReverse = () => {
+  let numSelectedRoutes = addedRoutesCoordsReverse.length;
+  addedRoutesCoordsReverse.forEach((coordArr: LatLng[], i: number) => {
+    let coordArrLen = coordArr.length;
+    coordArr.forEach((coord: LatLng, j: number) => {
+      setTimeout(() => {
+        busMarkers[i * 3].setLatLng([coord.lat, coord.lng]);
+      }, 100 * j);
+
+      setTimeout(() => {
+        busMarkers[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
+      }, 125 * j);
+
+      setTimeout(() => {
+        busMarkers[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
+        if (i === numSelectedRoutes - 1 && j === coordArrLen - 1) {
+          simulate();
+        }
+      }, 150 * j);
+    });
+  });
+};
+const stopSimulation = () => {
+  stopSim.value = true;
+};
 
 onMounted(() => {
   demoMap = L.map("map", options);
@@ -141,7 +179,12 @@ onMounted(() => {
         <button
           type="button"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
-          @click="simulate"
+          @click="
+            () => {
+              stopSim = false;
+              simulate();
+            }
+          "
         >
           <i class="fa-solid fa-play mr-2" />
           Simulate
@@ -149,7 +192,7 @@ onMounted(() => {
         <button
           type="button"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
-          @click="findRoutes"
+          @click="stopSimulation"
         >
           <i class="fa-solid fa-stop mr-2" />
           Stop
