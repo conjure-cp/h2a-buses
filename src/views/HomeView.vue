@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import Card from "@/components/Card.vue";
 import MultiSelect from "primevue/multiselect";
+import InputNumber from "primevue/inputnumber";
 import {
   generateRoutingControl,
   addedRoutesCoords,
@@ -22,10 +23,18 @@ const options: MapOptions = {
 const routeOptions = ref<
   {
     label: string;
-    value: LatLng[];
+    value: {
+      line: string;
+      waypoints: LatLng[];
+    };
   }[]
 >([]);
-const selectedRoutes = ref<LatLng[][]>([]);
+const selectedRoutes = ref<
+  {
+    line: string;
+    waypoints: LatLng[];
+  }[]
+>([]);
 const addedRoutes: L.Routing.Control[] = [];
 
 const stopSim = ref(false);
@@ -48,7 +57,10 @@ fetch("json/available_lines.json")
           // Collect other info - lineNumber, origin, destination
           routeOptions.value.push({
             label: `${data.line_name} ${data.origin} - ${data.destination}`,
-            value: route,
+            value: {
+              line: data.line_name,
+              waypoints: route,
+            },
           });
         });
     });
@@ -75,12 +87,14 @@ const findRoutes = () => {
   }
 
   if (selectedRoutes.value.length !== 0) {
-    selectedRoutes.value.forEach((route: LatLng[]) => {
-      const routingControl = generateRoutingControl(route, demoMap);
-      routingControl.addTo(demoMap);
-      routingControl.hide();
-      addedRoutes.push(routingControl);
-    });
+    selectedRoutes.value.forEach(
+      (data: { line: string; waypoints: LatLng[] }) => {
+        const routingControl = generateRoutingControl(data.waypoints, demoMap);
+        routingControl.addTo(demoMap);
+        routingControl.hide();
+        addedRoutes.push(routingControl);
+      }
+    );
   } else {
     alert("Please select a route!");
   }
@@ -146,12 +160,22 @@ onMounted(() => {
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(demoMap);
 });
+
+const dummyModelVal1 = ref(0);
+const dummyModelVal2 = ref(0);
+const dummyModelVal3 = ref(0);
+
+const defaultNumberFieldProps = {
+  root: "justify-center flex",
+  input:
+    "border-x-0 border-y-0 text-sm focus:shadow-none focus:border-0 text-center focus-visible:outline-none h-full w-full bg-transparent",
+};
 </script>
 
 <template>
   <div id="map"></div>
   <div class="absolute top-0 right-0 z-[1001] mt-2 mr-2">
-    <Card :class="'flex flex-col'">
+    <Card class="flex flex-col gap-y-4">
       <!-- <SelectForm v-model="selectedRouteId" :options="selectFormOptions" /> -->
       <!-- TODO: Improve Chip display?? -->
       <MultiSelect
@@ -164,9 +188,59 @@ onMounted(() => {
         :maxSelectedLabels="3"
         :selectionLimit="5"
         :virtualScrollerOptions="{ itemSize: 25 }"
-        class="w-[32rem]"
       />
-      <div class="flex gap-x-4 justify-center mt-2">
+      <div class="flex flex-row gap-x-4 justify-center">
+        <!-- TODO: IN PROGRESS -->
+        <input
+          v-for="(data, idx) in selectedRoutes"
+          :key="idx"
+          type="number"
+          class="border flex-initial w-20"
+          v-model="dummyModelVal1"
+        />
+        <!-- TODO: fix free text -->
+        <input
+          type="number"
+          class="border flex-initial w-20"
+          v-model="dummyModelVal2"
+          min="0"
+          max="3"
+          pattern="^[0-3]{1}$"
+        />
+        <input
+          type="number"
+          class="border flex-initial w-20"
+          v-model="dummyModelVal3"
+        />
+        <!-- <InputNumber
+          unstyled
+          :pt="defaultNumberFieldProps"
+          v-model="dummyModelVal1"
+          mode="decimal"
+          :min="0"
+          :max="3"
+          showButtons
+        />
+        <InputNumber
+          unstyled
+          :pt="defaultNumberFieldProps"
+          v-model="dummyModelVal2"
+          mode="decimal"
+          :min="0"
+          :max="3"
+          showButtons
+        />
+        <InputNumber
+          unstyled
+          :pt="defaultNumberFieldProps"
+          v-model="dummyModelVal3"
+          mode="decimal"
+          :min="0"
+          :max="3"
+          showButtons
+        /> -->
+      </div>
+      <div class="flex gap-x-4 justify-center">
         <button
           type="button"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
