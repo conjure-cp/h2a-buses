@@ -189,8 +189,8 @@ const defaultNumberFieldProps = {
         :selectionLimit="5"
         :virtualScrollerOptions="{ itemSize: 25 }"
       />
-      <div class="flex flex-row gap-x-4 justify-center">
-        <!-- TODO: IN PROGRESS -->
+      <!-- <div class="flex flex-row gap-x-4 justify-center">
+   
         <input
           v-for="(data, idx) in selectedRoutes"
           :key="idx"
@@ -198,7 +198,7 @@ const defaultNumberFieldProps = {
           class="border flex-initial w-20"
           v-model="dummyModelVal1"
         />
-        <!-- TODO: fix free text -->
+    
         <input
           type="number"
           class="border flex-initial w-20"
@@ -212,34 +212,8 @@ const defaultNumberFieldProps = {
           class="border flex-initial w-20"
           v-model="dummyModelVal3"
         />
-        <!-- <InputNumber
-          unstyled
-          :pt="defaultNumberFieldProps"
-          v-model="dummyModelVal1"
-          mode="decimal"
-          :min="0"
-          :max="3"
-          showButtons
-        />
-        <InputNumber
-          unstyled
-          :pt="defaultNumberFieldProps"
-          v-model="dummyModelVal2"
-          mode="decimal"
-          :min="0"
-          :max="3"
-          showButtons
-        />
-        <InputNumber
-          unstyled
-          :pt="defaultNumberFieldProps"
-          v-model="dummyModelVal3"
-          mode="decimal"
-          :min="0"
-          :max="3"
-          showButtons
-        /> -->
-      </div>
+      
+      </div> -->
       <div class="flex gap-x-4 justify-center">
         <button
           type="button"
