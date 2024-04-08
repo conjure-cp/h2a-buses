@@ -6,9 +6,24 @@ export const addedRoutesCoords: L.LatLng[][] = [];
 export const addedRoutesCoordsReverse: L.LatLng[][] = [];
 export const busMarkers: Marker[] = [];
 
+
+// TODO: how to cache routes on the local storage?? VueUse!!
 export const generateRoutingControl = (waypoints: L.LatLng[], map: L.Map) => {
+  /**
+   * This implementation relies on OSRM's demo server (https://router.project-osrm.org/route/v1) by default. 
+   * At this moment, the demo server is no longer maintained, and its SSL certificate has expired. 
+   * Therefore `leaflet-routing-machine` plugin might not work as expected unless we configure our own routing backend.
+   */
   const routingControl = L.Routing.control({
     waypoints: waypoints,
+    useZoomParameter: false,
+    fitSelectedRoutes: 'smart',
+    autoRoute: true,
+    
+    // Try also the matching algorithm
+    router: L.Routing.osrmv1({
+      serviceUrl: "https://routing.openstreetmap.de/routed-car/route/v1"
+    })
   })
     .on("routesfound", (e) => {
       routesFoundCallback(e, map);
