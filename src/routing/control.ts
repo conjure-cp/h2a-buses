@@ -7,17 +7,18 @@ export const addedRoutesCoordsReverse: L.LatLng[][] = [];
 export const busMarkers: Marker[] = [];
 
 export const generateRoutingControl = (waypoints: L.LatLng[], map: L.Map) => {
-
   const routingControl = L.Routing.control({
     waypoints: waypoints,
-  }).on("routesfound", (e) => {
-    routesFoundCallback(e, map);
-    addedRoutesCoords.push(e.routes[0].coordinates);
-    addedRoutesCoordsReverse.push(e.routes[0].coordinates.slice().reverse())
-  }).on("routingerror", (_err) => {
-    console.log("An error occured while routing", _err)
-    // throw(_err)
-  });
+  })
+    .on("routesfound", (e) => {
+      routesFoundCallback(e, map);
+      addedRoutesCoords.push(e.routes[0].coordinates);
+      addedRoutesCoordsReverse.push(e.routes[0].coordinates.slice().reverse());
+    })
+    .on("routingerror", (_err) => {
+      console.log("An error occured while routing", _err);
+      // throw(_err)
+    });
 
   return routingControl;
 };
@@ -40,18 +41,10 @@ export const routesFoundCallback = (e: any, map: L.Map) => {
       {
         icon: icon,
       }
-    )
+    );
     busMarkers.push(marker);
-    marker.addTo(map)
+    marker.addTo(map);
   }
-
-  //set the camera
-  //   const zoomCenter = L.latLng(
-  //     (e.waypoints[0].latLng.lat + e.waypoints[1].latLng.lat) / 2,
-  //     (e.waypoints[0].latLng.lng + e.waypoints[1].latLng.lng) / 2
-  //   );
-  //   map.setView(zoomCenter);
-  //   let zoomThreshold = map.getZoom();
 
   map.eachLayer((layer: Layer) => {
     if (

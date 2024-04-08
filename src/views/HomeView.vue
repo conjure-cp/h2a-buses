@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import Card from "@/components/Card.vue";
+import InputNumber, {
+  type InputNumberInterface,
+} from "@/components/InputNumber.vue";
 import MultiSelect from "primevue/multiselect";
-import InputNumber from "primevue/inputnumber";
 import {
   generateRoutingControl,
   addedRoutesCoords,
@@ -65,6 +67,27 @@ fetch("json/available_lines.json")
         });
     });
   });
+
+const inputNumberProps = ref<InputNumberInterface>({
+  ptProps: {
+    root: {
+      class: "flex justify-center text-left font-medium h-full",
+    },
+    input: {
+      root: "order-2 mx-1 w-[35%] px-2 py-1 border text-sm text-center h-full bg-transparent",
+    },
+    incrementButton: {
+      root: "order-3 border-0 rounded",
+    },
+    decrementButton: {
+      root: "order-1 border-0 rounded",
+    },
+  },
+  min: 0,
+  max: 3,
+  isDisabled: false,
+  inputWrapper: " basis-1/3",
+});
 
 const findRoutes = () => {
   // TODO: Existing layers should also be removed
@@ -164,19 +187,12 @@ onMounted(() => {
 const dummyModelVal1 = ref(0);
 const dummyModelVal2 = ref(0);
 const dummyModelVal3 = ref(0);
-
-const defaultNumberFieldProps = {
-  root: "justify-center flex",
-  input:
-    "border-x-0 border-y-0 text-sm focus:shadow-none focus:border-0 text-center focus-visible:outline-none h-full w-full bg-transparent",
-};
 </script>
 
 <template>
   <div id="map"></div>
   <div class="absolute top-0 right-0 z-[1001] mt-2 mr-2">
     <Card class="flex flex-col gap-y-4">
-      <!-- <SelectForm v-model="selectedRouteId" :options="selectFormOptions" /> -->
       <!-- TODO: Improve Chip display?? -->
       <MultiSelect
         v-model="selectedRoutes"
@@ -189,31 +205,60 @@ const defaultNumberFieldProps = {
         :selectionLimit="5"
         :virtualScrollerOptions="{ itemSize: 25 }"
       />
-      <!-- <div class="flex flex-row gap-x-4 justify-center">
-   
-        <input
-          v-for="(data, idx) in selectedRoutes"
-          :key="idx"
-          type="number"
-          class="border flex-initial w-20"
-          v-model="dummyModelVal1"
-        />
-    
-        <input
-          type="number"
-          class="border flex-initial w-20"
-          v-model="dummyModelVal2"
-          min="0"
-          max="3"
-          pattern="^[0-3]{1}$"
-        />
-        <input
-          type="number"
-          class="border flex-initial w-20"
-          v-model="dummyModelVal3"
-        />
-      
-      </div> -->
+      <!-- TODO: Refactor -->
+      <div class="flex flex-row gap-x-2 justify-center">
+        <span class="self-center text-sm">
+          2 Townhill - Duloch Park & Fife Leisure Park
+        </span>
+        <div class="flex flex-col gap-y-1">
+          <div class="text-sm text-red-500 text-center font-bold">IC</div>
+          <InputNumber
+            v-model="dummyModelVal1"
+            :inputProps="inputNumberProps"
+          />
+        </div>
+        <div class="flex flex-col gap-y-1">
+          <div class="text-sm text-green-500 text-center font-bold">EV</div>
+          <InputNumber
+            v-model="dummyModelVal2"
+            :inputProps="inputNumberProps"
+          />
+        </div>
+        <div class="flex flex-col gap-y-1">
+          <div class="text-sm text-blue-500 text-center font-bold">Hybrid</div>
+          <InputNumber
+            v-model="dummyModelVal3"
+            :inputProps="inputNumberProps"
+          />
+        </div>
+      </div>
+      <div class="flex flex-row gap-x-2 justify-center">
+        <span class="self-center text-sm">
+          99 St Andrews bus station - Dundee City Centre
+        </span>
+        <div class="flex flex-col gap-y-1">
+          <div class="text-sm text-red-500 text-center font-bold">IC</div>
+          <InputNumber
+            v-model="dummyModelVal1"
+            :inputProps="inputNumberProps"
+          />
+        </div>
+        <div class="flex flex-col gap-y-1">
+          <div class="text-sm text-green-500 text-center font-bold">EV</div>
+          <InputNumber
+            v-model="dummyModelVal2"
+            :inputProps="inputNumberProps"
+          />
+        </div>
+        <div class="flex flex-col gap-y-1">
+          <div class="text-sm text-blue-500 text-center font-bold">Hybrid</div>
+          <InputNumber
+            v-model="dummyModelVal3"
+            :inputProps="inputNumberProps"
+          />
+        </div>
+      </div>
+      <!-- TODO: Refactor -->
       <div class="flex gap-x-4 justify-center">
         <button
           type="button"
