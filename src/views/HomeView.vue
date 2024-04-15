@@ -7,12 +7,13 @@ import InputNumber, {
 import MultiSelect from "primevue/multiselect";
 import {
   generateRoutingControl,
+  routeFound,
   addedRoutesCoords,
   addedRoutesCoordsReverse,
   busMarkers,
 } from "@/routing/control";
 import { type BusLine } from "@/utils/types";
-import L, { type MapOptions, Marker, LatLng, Layer } from "leaflet";
+import L, { type MapOptions, Marker, LatLng, Layer, Polyline } from "leaflet";
 import "leaflet-routing-machine";
 
 let demoMap: L.Map;
@@ -92,7 +93,7 @@ const inputNumberProps = ref<InputNumberInterface>({
 const findRoutes = () => {
   // TODO: Existing layers should also be removed
   demoMap.eachLayer((layer: Layer) => {
-    if (layer instanceof Marker) {
+    if (layer instanceof Marker || layer instanceof Polyline) {
       demoMap.removeLayer(layer);
     }
   });
@@ -103,8 +104,7 @@ const findRoutes = () => {
   }
 
   // Remove every control object added to map first
-  while (addedRoutes.length > 0) {
-    demoMap.removeControl(addedRoutes.shift()!);
+  while (addedRoutesCoords.length > 0) {
     addedRoutesCoords.shift();
     addedRoutesCoordsReverse.shift();
   }
@@ -112,10 +112,18 @@ const findRoutes = () => {
   if (selectedRoutes.value.length !== 0) {
     selectedRoutes.value.forEach(
       (data: { line: string; waypoints: LatLng[] }) => {
-        const routingControl = generateRoutingControl(data.waypoints, demoMap);
-        routingControl.addTo(demoMap);
-        routingControl.hide();
-        addedRoutes.push(routingControl);
+        if (localStorage.getItem(data.line)) {
+          const routeCoordinates = JSON.parse(localStorage.getItem(data.line)!);
+          const route = new L.Polyline(routeCoordinates);
+          routeFound(data.waypoints, demoMap);
+          route.addTo(demoMap);
+
+          addedRoutesCoords.push(routeCoordinates);
+          addedRoutesCoordsReverse.push(routeCoordinates);
+        } else {
+          // otherwise call osrm API and cache route coordinates
+          generateRoutingControl(data.line, data.waypoints, demoMap);
+        }
       }
     );
   } else {
@@ -132,13 +140,9 @@ const simulate = () => {
         busMarkers[i * 3].setLatLng([coord.lat, coord.lng]);
       }, 100 * j);
 
-      // await sleep(1000);
-
       setTimeout(() => {
         busMarkers[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
       }, 125 * j);
-
-      // await sleep(1000);
 
       setTimeout(() => {
         busMarkers[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
