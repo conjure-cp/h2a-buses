@@ -47,7 +47,6 @@ export const generateRoutingControl = (
 };
 
 export const routeFound = (waypoints: L.LatLng[], map: L.Map, e?: any) => {
-  let waypointMarkers = new L.FeatureGroup();
 
   // add bus markers (3) to the starting point, representing a different engine type (IC, EV, Hybrid)
   for (let i = 0; i < busIconColors.length; i++) {
@@ -65,6 +64,10 @@ export const routeFound = (waypoints: L.LatLng[], map: L.Map, e?: any) => {
     busMarkers.push(marker);
     marker.addTo(map);
   }
+
+  // Remove waypoint markers
+
+  let waypointMarkers = new L.FeatureGroup();
 
   map.eachLayer((layer: Layer) => {
     if (
