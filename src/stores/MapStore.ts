@@ -26,20 +26,20 @@ export const useMapStore = defineStore("map", () => {
     zoom: 13,
   };
 
-  let demoMap: L.Map;
+  const demoMap = ref<L.Map>();
   const busMarkers = ref<L.Marker[]>([]);
 
   const createMap = () => {
-    demoMap = L.map("map", options);
+    demoMap.value = L.map("map", options);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(demoMap);
+    }).addTo(demoMap.value);
   };
 
   const removeWaypointMarkers = () => {
     let waypointMarkers = new L.FeatureGroup();
-    demoMap.eachLayer((layer: L.Layer) => {
+    demoMap.value?.eachLayer((layer: L.Layer) => {
       if (
         layer instanceof L.Marker &&
         !layer.getIcon().options.className?.includes("bus")
@@ -49,8 +49,8 @@ export const useMapStore = defineStore("map", () => {
     });
 
     // TODO: Solve this duplicate layer problem!
-    demoMap.addLayer(waypointMarkers);
-    demoMap.removeLayer(waypointMarkers);
+    demoMap.value?.addLayer(waypointMarkers);
+    demoMap.value?.removeLayer(waypointMarkers);
   };
 
   //   TODO: Update this implementation. Currenly only 3 markers
@@ -68,7 +68,7 @@ export const useMapStore = defineStore("map", () => {
         }
       );
       busMarkers.value.push(marker);
-      marker.addTo(demoMap);
+      marker.addTo(demoMap.value!);
     }
   };
 
@@ -76,4 +76,13 @@ export const useMapStore = defineStore("map", () => {
     busMarkers.value = [];
   };
   //   Map related
+
+  return {
+    demoMap,
+    createMap,
+    busMarkers,
+    createBusMarkers,
+    removeBusMarkers,
+    removeWaypointMarkers,
+  };
 });

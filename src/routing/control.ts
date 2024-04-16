@@ -1,15 +1,20 @@
 import { busIconColors } from "@/utils/helper";
 import L, { type LatLng, Marker, Layer } from "leaflet";
 import "leaflet-routing-machine";
+import { storeToRefs } from "pinia";
+import { useMapStore } from "@/stores/MapStore";
 
 export const addedRoutesCoords: L.LatLng[][] = [];
 export const addedRoutesCoordsReverse: L.LatLng[][] = [];
 export const busMarkers: Marker[] = [];
 
+const { demoMap: map } = storeToRefs(useMapStore())
+const { createBusMarkers, removeWaypointMarkers } = useMapStore()
+
 export const generateRoutingControl = (
   line: string,
   waypoints: L.LatLng[],
-  map: L.Map,
+  mapArg?: L.Map,
 ) => {
   /**
    * This implementation relies on OSRM's demo server (https://router.project-osrm.org/route/v1) by default.
@@ -30,8 +35,8 @@ export const generateRoutingControl = (
     .on("routesfound", (e) => {
       // Add route to map
       const route = new L.Polyline(e.routes[0].coordinates);
-      routeFound(waypoints, map, e);
-      route.addTo(map);
+      routeFound(waypoints);
+      route.addTo(map.value as L.Map);
       // Cache route coordinates
       localStorage.setItem(line, JSON.stringify(e.routes[0].coordinates));
       addedRoutesCoords.push(e.routes[0].coordinates);
@@ -46,39 +51,41 @@ export const generateRoutingControl = (
   return routingControl;
 };
 
-export const routeFound = (waypoints: L.LatLng[], map: L.Map, e?: any) => {
+export const routeFound = (waypoints: L.LatLng[], map?: L.Map, e?: any) => {
 
   // add bus markers (3) to the starting point, representing a different engine type (IC, EV, Hybrid)
-  for (let i = 0; i < busIconColors.length; i++) {
-    const icon = L.divIcon({
-      html: `<i class="fa-solid fa-bus fa-2xl" style="color: ${busIconColors[i]};"></i>`,
-      className: `busIcon${i}`,
-    });
+  // for (let i = 0; i < busIconColors.length; i++) {
+  //   const icon = L.divIcon({
+  //     html: `<i class="fa-solid fa-bus fa-2xl" style="color: ${busIconColors[i]};"></i>`,
+  //     className: `busIcon${i}`,
+  //   });
 
-    const marker = L.marker(
-      [waypoints[0].lat + i / 1000, waypoints[0].lng + i / 1000],
-      {
-        icon: icon,
-      }
-    );
-    busMarkers.push(marker);
-    marker.addTo(map);
-  }
+  //   const marker = L.marker(
+  //     [waypoints[0].lat + i / 1000, waypoints[0].lng + i / 1000],
+  //     {
+  //       icon: icon,
+  //     }
+  //   );
+  //   busMarkers.push(marker);
+  //   marker.addTo(map);
+  // }
+  createBusMarkers(waypoints)
 
   // Remove waypoint markers
 
-  let waypointMarkers = new L.FeatureGroup();
+  // let waypointMarkers = new L.FeatureGroup();
 
-  map.eachLayer((layer: Layer) => {
-    if (
-      layer instanceof Marker &&
-      !layer.getIcon().options.className?.includes("bus")
-    ) {
-      waypointMarkers.addLayer(layer);
-    }
-  });
+  // map.eachLayer((layer: Layer) => {
+  //   if (
+  //     layer instanceof Marker &&
+  //     !layer.getIcon().options.className?.includes("bus")
+  //   ) {
+  //     waypointMarkers.addLayer(layer);
+  //   }
+  // });
 
-  // TODO: Solve this duplicate layer problem!
-  map.addLayer(waypointMarkers);
-  map.removeLayer(waypointMarkers);
+  // // TODO: Solve this duplicate layer problem!
+  // map.addLayer(waypointMarkers);
+  // map.removeLayer(waypointMarkers);
+  removeWaypointMarkers()
 };
