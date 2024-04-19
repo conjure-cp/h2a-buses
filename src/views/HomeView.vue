@@ -7,7 +7,7 @@ import InputNumber, {
 import MultiSelect from "primevue/multiselect";
 import { generateRoutingControl, routeFound } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
-import { type BusLine } from "@/utils/types";
+import type { BusLine, RouteFoundEventData } from "@/utils/types";
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
@@ -110,14 +110,14 @@ const findRoutes = () => {
     selectedRoutes.value.forEach(
       (data: { line: string; serviceCode: string; waypoints: L.LatLng[] }) => {
         if (localStorage.getItem(data.serviceCode)) {
-          const routeCoordinates = JSON.parse(
+          const routeData: RouteFoundEventData = JSON.parse(
             localStorage.getItem(data.serviceCode)!
           );
-          const route = new L.Polyline(routeCoordinates);
+          const route = new L.Polyline(routeData.coordinates);
           routeFound(data.waypoints);
           route.addTo(demoMapStore.value as L.Map);
 
-          addRouteCoords(routeCoordinates);
+          addRouteCoords(routeData.coordinates);
         } else {
           // otherwise call osrm API and cache route coordinates
           generateRoutingControl(data.serviceCode, data.waypoints);

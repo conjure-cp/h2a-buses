@@ -1,15 +1,15 @@
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
-import { useMapStore } from "@/stores/MapStore"; 
+import { useMapStore } from "@/stores/MapStore";
+import type { RouteFoundEventData } from "@/utils/types";
 
 export const generateRoutingControl = (
   serviceCode: string,
-  waypoints: L.LatLng[],
+  waypoints: L.LatLng[]
 ) => {
-
-  const { demoMap: map } = storeToRefs(useMapStore())
-  const { addRouteCoords } = useMapStore()
+  const { demoMap: map } = storeToRefs(useMapStore());
+  const { addRouteCoords } = useMapStore();
   /**
    * This implementation relies on OSRM's demo server (https://router.project-osrm.org/route/v1) by default.
    * At this moment, the demo server is no longer maintained, and its SSL certificate has expired.
@@ -27,15 +27,21 @@ export const generateRoutingControl = (
     }),
   })
     .on("routesfound", (e) => {
+      const routeData: RouteFoundEventData = {
+        coordinates: e.routes[0].coordinates,
+        totalDistance: e.routes[0].summary.totalDistance,
+        totalTime: e.routes[0].summary.totalTime,
+      };
+
       // Add route to map
-      const route = new L.Polyline(e.routes[0].coordinates);
+      const route = new L.Polyline(routeData.coordinates);
       routeFound(waypoints);
       route.addTo(map.value as L.Map);
       // Cache route coordinates
-      localStorage.setItem(serviceCode, JSON.stringify(e.routes[0].coordinates));
+      localStorage.setItem(serviceCode, JSON.stringify(routeData));
 
       // Populate `addedRoutesCoords` arrays
-      addRouteCoords(e.routes[0].coordinates)
+      addRouteCoords(routeData.coordinates);
     })
     .on("routingerror", (_err) => {
       console.log("An error occured while routing", _err);
@@ -46,9 +52,9 @@ export const generateRoutingControl = (
 };
 
 export const routeFound = (waypoints: L.LatLng[]) => {
-  const { createBusMarkers, removeWaypointMarkers } = useMapStore()
+  const { createBusMarkers, removeWaypointMarkers } = useMapStore();
 
-  createBusMarkers(waypoints)
+  createBusMarkers(waypoints);
 
-  removeWaypointMarkers()
+  removeWaypointMarkers();
 };
