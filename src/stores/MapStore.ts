@@ -37,6 +37,14 @@ export const useMapStore = defineStore("map", () => {
     }).addTo(demoMap.value);
   };
 
+  const removeLayers = () => {
+    demoMap.value?.eachLayer((layer: L.Layer) => {
+      if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+        demoMap.value?.removeLayer(layer);
+      }
+    });
+  }
+
   const removeWaypointMarkers = () => {
     let waypointMarkers = new L.FeatureGroup();
     demoMap.value?.eachLayer((layer: L.Layer) => {
@@ -80,9 +88,14 @@ export const useMapStore = defineStore("map", () => {
   return {
     demoMap,
     createMap,
+    removeLayers,
     busMarkers,
     createBusMarkers,
     removeBusMarkers,
     removeWaypointMarkers,
+    addedRoutesCoords,
+    addedRoutesCoordsReverseOrder,
+    addRouteCoords,
+    removeRouteCoords
   };
 });
