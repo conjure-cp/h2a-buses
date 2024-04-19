@@ -1,16 +1,15 @@
-import { busIconColors } from "@/utils/helper";
-import L, { type LatLng, Marker, Layer } from "leaflet";
+import L from "leaflet";
 import "leaflet-routing-machine";
-
-export const addedRoutesCoords: L.LatLng[][] = [];
-export const addedRoutesCoordsReverse: L.LatLng[][] = [];
-export const busMarkers: Marker[] = [];
+import { storeToRefs } from "pinia";
+import { useMapStore } from "@/stores/MapStore"; 
 
 export const generateRoutingControl = (
-  line: string,
+  serviceCode: string,
   waypoints: L.LatLng[],
-  map: L.Map,
 ) => {
+
+  const { demoMap: map } = storeToRefs(useMapStore())
+  const { addRouteCoords } = useMapStore()
   /**
    * This implementation relies on OSRM's demo server (https://router.project-osrm.org/route/v1) by default.
    * At this moment, the demo server is no longer maintained, and its SSL certificate has expired.
@@ -30,13 +29,13 @@ export const generateRoutingControl = (
     .on("routesfound", (e) => {
       // Add route to map
       const route = new L.Polyline(e.routes[0].coordinates);
-      routeFound(waypoints, map, e);
-      route.addTo(map);
+      routeFound(waypoints);
+      route.addTo(map.value as L.Map);
       // Cache route coordinates
-      localStorage.setItem(line, JSON.stringify(e.routes[0].coordinates));
-      addedRoutesCoords.push(e.routes[0].coordinates);
-      addedRoutesCoordsReverse.push(e.routes[0].coordinates.slice().reverse());
+      localStorage.setItem(serviceCode, JSON.stringify(e.routes[0].coordinates));
 
+      // Populate `addedRoutesCoords` arrays
+      addRouteCoords(e.routes[0].coordinates)
     })
     .on("routingerror", (_err) => {
       console.log("An error occured while routing", _err);
@@ -46,36 +45,10 @@ export const generateRoutingControl = (
   return routingControl;
 };
 
-export const routeFound = (waypoints: L.LatLng[], map: L.Map, e?: any) => {
-  let waypointMarkers = new L.FeatureGroup();
+export const routeFound = (waypoints: L.LatLng[]) => {
+  const { createBusMarkers, removeWaypointMarkers } = useMapStore()
 
-  // add bus markers (3) to the starting point, representing a different engine type (IC, EV, Hybrid)
-  for (let i = 0; i < busIconColors.length; i++) {
-    const icon = L.divIcon({
-      html: `<i class="fa-solid fa-bus fa-2xl" style="color: ${busIconColors[i]};"></i>`,
-      className: `busIcon${i}`,
-    });
+  createBusMarkers(waypoints)
 
-    const marker = L.marker(
-      [waypoints[0].lat + i / 1000, waypoints[0].lng + i / 1000],
-      {
-        icon: icon,
-      }
-    );
-    busMarkers.push(marker);
-    marker.addTo(map);
-  }
-
-  map.eachLayer((layer: Layer) => {
-    if (
-      layer instanceof Marker &&
-      !layer.getIcon().options.className?.includes("bus")
-    ) {
-      waypointMarkers.addLayer(layer);
-    }
-  });
-
-  // TODO: Solve this duplicate layer problem!
-  map.addLayer(waypointMarkers);
-  map.removeLayer(waypointMarkers);
+  removeWaypointMarkers()
 };

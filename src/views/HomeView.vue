@@ -5,40 +5,45 @@ import InputNumber, {
   type InputNumberInterface,
 } from "@/components/InputNumber.vue";
 import MultiSelect from "primevue/multiselect";
-import {
-  generateRoutingControl,
-  routeFound,
-  addedRoutesCoords,
-  addedRoutesCoordsReverse,
-  busMarkers,
-} from "@/routing/control";
+import { generateRoutingControl, routeFound } from "@/routing/control";
+import { useMapStore } from "@/stores/MapStore";
 import { type BusLine } from "@/utils/types";
-import L, { type MapOptions, Marker, LatLng, Layer, Polyline } from "leaflet";
+import L from "leaflet";
 import "leaflet-routing-machine";
+import { storeToRefs } from "pinia";
 
-let demoMap: L.Map;
-
-const options: MapOptions = {
-  center: L.latLng(56.34213143540303, -2.794179122392289),
-  zoom: 13,
-};
+const mapStore = useMapStore();
+const {
+  demoMap: demoMapStore,
+  busMarkers: busMarkersStore,
+  addedRoutesCoords: addedRoutesCoordsStore,
+  addedRoutesCoordsReverseOrder,
+} = storeToRefs(mapStore);
+const {
+  createMap,
+  removeLayers,
+  removeBusMarkers,
+  addRouteCoords,
+  removeRouteCoords,
+} = mapStore;
 
 const routeOptions = ref<
   {
     label: string;
     value: {
       line: string;
-      waypoints: LatLng[];
+      serviceCode: string;
+      waypoints: L.LatLng[];
     };
   }[]
 >([]);
 const selectedRoutes = ref<
   {
     line: string;
-    waypoints: LatLng[];
+    serviceCode: string;
+    waypoints: L.LatLng[];
   }[]
 >([]);
-const addedRoutes: L.Routing.Control[] = [];
 
 const stopSim = ref(false);
 
@@ -52,7 +57,7 @@ fetch("json/available_lines.json")
         .then((resp) => resp.json())
         .then((data: BusLine) => {
           // Collect lat & lng info
-          const route: LatLng[] = [];
+          const route: L.LatLng[] = [];
           data.stops.forEach((elem) => {
             route.push(L.latLng(elem[0], elem[1]));
           });
@@ -62,6 +67,7 @@ fetch("json/available_lines.json")
             label: `${data.line_name} ${data.origin} - ${data.destination}`,
             value: {
               line: data.line_name,
+              serviceCode: data.service_code,
               waypoints: route,
             },
           });
@@ -91,38 +97,30 @@ const inputNumberProps = ref<InputNumberInterface>({
 });
 
 const findRoutes = () => {
-  // TODO: Existing layers should also be removed
-  demoMap.eachLayer((layer: Layer) => {
-    if (layer instanceof Marker || layer instanceof Polyline) {
-      demoMap.removeLayer(layer);
-    }
-  });
+  // Existing layers should also be removed
+  removeLayers();
 
   // pop every element from the bus marker arr
-  while (busMarkers.length > 0) {
-    busMarkers.shift();
-  }
+  removeBusMarkers();
 
-  // Remove every control object added to map first
-  while (addedRoutesCoords.length > 0) {
-    addedRoutesCoords.shift();
-    addedRoutesCoordsReverse.shift();
-  }
+  // Clean route coords
+  removeRouteCoords();
 
   if (selectedRoutes.value.length !== 0) {
     selectedRoutes.value.forEach(
-      (data: { line: string; waypoints: LatLng[] }) => {
-        if (localStorage.getItem(data.line)) {
-          const routeCoordinates = JSON.parse(localStorage.getItem(data.line)!);
+      (data: { line: string; serviceCode: string; waypoints: L.LatLng[] }) => {
+        if (localStorage.getItem(data.serviceCode)) {
+          const routeCoordinates = JSON.parse(
+            localStorage.getItem(data.serviceCode)!
+          );
           const route = new L.Polyline(routeCoordinates);
-          routeFound(data.waypoints, demoMap);
-          route.addTo(demoMap);
+          routeFound(data.waypoints);
+          route.addTo(demoMapStore.value as L.Map);
 
-          addedRoutesCoords.push(routeCoordinates);
-          addedRoutesCoordsReverse.push(routeCoordinates);
+          addRouteCoords(routeCoordinates);
         } else {
           // otherwise call osrm API and cache route coordinates
-          generateRoutingControl(data.line, data.waypoints, demoMap);
+          generateRoutingControl(data.serviceCode, data.waypoints);
         }
       }
     );
@@ -132,20 +130,20 @@ const findRoutes = () => {
 };
 
 const simulate = () => {
-  let numSelectedRoutes = addedRoutesCoords.length;
-  addedRoutesCoords.forEach((coordArr: LatLng[], i: number) => {
+  let numSelectedRoutes = addedRoutesCoordsStore.value.length;
+  addedRoutesCoordsStore.value.forEach((coordArr: L.LatLng[], i: number) => {
     let coordArrLen = coordArr.length;
-    coordArr.forEach((coord: LatLng, j: number) => {
+    coordArr.forEach((coord: L.LatLng, j: number) => {
       setTimeout(() => {
-        busMarkers[i * 3].setLatLng([coord.lat, coord.lng]);
+        busMarkersStore.value[i * 3].setLatLng([coord.lat, coord.lng]);
       }, 100 * j);
 
       setTimeout(() => {
-        busMarkers[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
+        busMarkersStore.value[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
       }, 125 * j);
 
       setTimeout(() => {
-        busMarkers[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
+        busMarkersStore.value[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
         if (i === numSelectedRoutes - 1 && j === coordArrLen - 1) {
           simulateReverse();
         }
@@ -155,37 +153,35 @@ const simulate = () => {
 };
 
 const simulateReverse = () => {
-  let numSelectedRoutes = addedRoutesCoordsReverse.length;
-  addedRoutesCoordsReverse.forEach((coordArr: LatLng[], i: number) => {
-    let coordArrLen = coordArr.length;
-    coordArr.forEach((coord: LatLng, j: number) => {
-      setTimeout(() => {
-        busMarkers[i * 3].setLatLng([coord.lat, coord.lng]);
-      }, 100 * j);
+  let numSelectedRoutes = addedRoutesCoordsReverseOrder.value.length;
+  addedRoutesCoordsReverseOrder.value.forEach(
+    (coordArr: L.LatLng[], i: number) => {
+      let coordArrLen = coordArr.length;
+      coordArr.forEach((coord: L.LatLng, j: number) => {
+        setTimeout(() => {
+          busMarkersStore.value[i * 3].setLatLng([coord.lat, coord.lng]);
+        }, 100 * j);
 
-      setTimeout(() => {
-        busMarkers[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
-      }, 125 * j);
+        setTimeout(() => {
+          busMarkersStore.value[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
+        }, 125 * j);
 
-      setTimeout(() => {
-        busMarkers[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
-        if (i === numSelectedRoutes - 1 && j === coordArrLen - 1) {
-          simulate();
-        }
-      }, 150 * j);
-    });
-  });
+        setTimeout(() => {
+          busMarkersStore.value[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
+          if (i === numSelectedRoutes - 1 && j === coordArrLen - 1) {
+            simulate();
+          }
+        }, 150 * j);
+      });
+    }
+  );
 };
 const stopSimulation = () => {
   stopSim.value = true;
 };
 
 onMounted(() => {
-  demoMap = L.map("map", options);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(demoMap);
+  createMap();
 });
 
 const dummyModelVal1 = ref(0);
