@@ -31,7 +31,7 @@ const props = defineProps<{
 }>();
 
 // emits
-const emit = defineEmits(["update:modelValue", "focusIn", "focusOut"]);
+const emit = defineEmits(["update:modelValue", "increase", "decrease"]);
 
 const inputModel = computed({
   get() {
@@ -70,14 +70,12 @@ const inputModel = computed({
       showButtons
       buttonLayout="horizontal"
       :step="props.inputProps.step"
-      @focus="emit('focusIn')"
-      @blur="emit('focusOut')"
     >
       <template #incrementbuttonicon>
-        <span class="fa-solid fa-plus" />
+        <span class="fa-solid fa-plus" @click="emit('increase')" />
       </template>
       <template #decrementbuttonicon>
-        <span class="fa-solid fa-minus" />
+        <span class="fa-solid fa-minus" @click="emit('decrease')" />
       </template>
     </InputNumber>
     <span

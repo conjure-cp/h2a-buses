@@ -1,22 +1,126 @@
-import L from "leaflet";
+import L, { marker } from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
+import { busIconColorMap } from "@/utils/helper";
 import { useMapStore } from "@/stores/MapStore";
-import type { RouteFoundEventData } from "@/utils/types";
+import type { BusLaneRoute, BusMarkerType, RouteOptions } from "@/utils/types";
 
-export const generateRoutingControl = (
-  serviceCode: string,
-  waypoints: L.LatLng[]
-) => {
+export class BusLane {
+  line?: string;
+  origin?: string;
+  destination?: string;
+  serviceCode: string;
+  routeData: BusLaneRoute;
+  markers: Map<BusMarkerType, L.Marker[]> = new Map([
+    ["EV", []],
+    ["IC", []],
+    ["Hybrid", []]
+  ]);
+  get coordinatesReverse() {
+    return this.routeData?.coordinates.slice().reverse();
+  }
+  get label() {
+    return `${this.line} ${this.origin} - ${this.destination}`;
+  }
+
+  get numEVMarkers(){
+    return this.markers.get("EV")?.length
+  }
+
+  get numICMarkers(){
+    return this.markers.get("IC")?.length
+  }
+
+  get numHybridMarkers(){
+    return this.markers.get("Hybrid")?.length;
+  }
+
+  /**
+   * Static method to return a fresh BusLane object using the information stored in localStorage
+   * @param serviceCode
+   * @returns BusLane
+   */
+  static generateFromLocalStorage(serviceCode: string) {
+    const data: BusLane = JSON.parse(localStorage.getItem(serviceCode)!);
+
+    return new BusLane({
+      line: data.line,
+      origin: data.origin,
+      destination: data.destination,
+      serviceCode: data.serviceCode,
+      routeData: data.routeData,
+    });
+  }
+
+  constructor(data: {
+    serviceCode: string;
+    routeData: BusLaneRoute;
+    line?: string;
+    origin?: string;
+    destination?: string;
+  }) {
+    this.serviceCode = data.serviceCode;
+    this.routeData = data.routeData;
+    this.line = data.line;
+    this.origin = data.origin;
+    this.destination = data.destination;
+  }
+
+  addMarker(type: BusMarkerType) {
+    const { addMarkerToMap } = useMapStore();
+    const numMarkers = this.markers.get(type)?.length || 0;
+    const icon = L.divIcon({
+      html: `<i class="fa-solid fa-bus fa-2xl" style="color: ${busIconColorMap.get(type)};"></i>`,
+      className: `busIcon-${type}-${this.serviceCode}-${numMarkers + 1}`,
+    });
+
+    const marker = L.marker(
+      [
+        this.routeData?.coordinates[0].lat! +
+          this._mapMarkerTypeToIdx(type) / 5000,
+        this.routeData?.coordinates[0].lng! +
+          this._mapMarkerTypeToIdx(type) / 5000,
+      ],
+      {
+        icon: icon,
+      }
+    );
+
+    this.markers.get(type)?.push(marker)
+    addMarkerToMap(marker)
+  }
+
+  removeMarker(type: BusMarkerType, id: number) {
+    const { removeBusMarkerFromMap } = useMapStore()
+    this.markers.get(type)?.pop()
+    removeBusMarkerFromMap(id, type, this.serviceCode)
+  }
+
+  // Very ugly solution to remove all markers
+  removeAllMarkers() {
+    this.markers.clear();
+  }
+
+  /**
+   *
+   * @param markerType : "IC" | "EV" | "Hybrid"
+   * @returns { 0, 1, 2}
+   */
+  _mapMarkerTypeToIdx(markerType: BusMarkerType) {
+    return markerType === "IC" ? 0 : markerType === "EV" ? 1 : 2;
+  }
+}
+
+export const generateRoutingControl = (data: RouteOptions) => {
   const { demoMap: map } = storeToRefs(useMapStore());
-  const { addRouteCoords } = useMapStore();
+  const { addBusLane } = useMapStore();
   /**
    * This implementation relies on OSRM's demo server (https://router.project-osrm.org/route/v1) by default.
    * At this moment, the demo server is no longer maintained, and its SSL certificate has expired.
    * Therefore `leaflet-routing-machine` plugin might not work as expected unless we configure our own routing backend.
    */
   const routingControl = L.Routing.control({
-    waypoints: waypoints,
+    waypoints: data.waypoints,
     useZoomParameter: false,
     fitSelectedRoutes: "smart",
     autoRoute: false,
@@ -27,21 +131,29 @@ export const generateRoutingControl = (
     }),
   })
     .on("routesfound", (e) => {
-      const routeData: RouteFoundEventData = {
+      const routeData: BusLaneRoute = {
         coordinates: e.routes[0].coordinates,
         totalDistance: e.routes[0].summary.totalDistance,
         totalTime: e.routes[0].summary.totalTime,
       };
 
+      const busLane: BusLane = new BusLane({
+        line: data.line,
+        origin: data.origin,
+        destination: data.destination,
+        serviceCode: data.serviceCode,
+        routeData: routeData,
+      });
+
       // Add route to map
-      const route = new L.Polyline(routeData.coordinates);
-      routeFound(waypoints);
+      const route = new L.Polyline(busLane.routeData.coordinates);
+      routeFound(data.waypoints);
       route.addTo(map.value as L.Map);
       // Cache route coordinates
-      localStorage.setItem(serviceCode, JSON.stringify(routeData));
+      localStorage.setItem(data.serviceCode, JSON.stringify(busLane));
 
-      // Populate `addedRoutesCoords` arrays
-      addRouteCoords(routeData.coordinates);
+      // Add another entry to busLanes array
+      addBusLane(busLane);
     })
     .on("routingerror", (_err) => {
       console.log("An error occured while routing", _err);
@@ -54,7 +166,7 @@ export const generateRoutingControl = (
 export const routeFound = (waypoints: L.LatLng[]) => {
   const { createBusMarkers, removeWaypointMarkers } = useMapStore();
 
-  createBusMarkers(waypoints);
+  // createBusMarkers(waypoints);
 
   removeWaypointMarkers();
 };
