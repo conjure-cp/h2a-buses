@@ -62,46 +62,23 @@ export const useMapStore = defineStore("map", () => {
     demoMap.value?.removeLayer(waypointMarkers);
   };
 
-  //   TODO: Update this implementation. Currenly only 3 markers
-  const createBusMarkers = (waypoints: L.LatLng[]) => {
-    for (let i = 0; i < busIconColors.length; i++) {
-      const icon = L.divIcon({
-        html: `<i class="fa-solid fa-bus fa-2xl" style="color: ${busIconColors[i]};"></i>`,
-        className: `busIcon${i}`,
-      });
-
-      const marker = L.marker(
-        [waypoints[0].lat + i / 1000, waypoints[0].lng + i / 1000],
-        {
-          icon: icon,
-        }
-      );
-      busMarkers.value.push(marker);
-      marker.addTo(demoMap.value!);
-    }
-  };
-
   const addMarkerToMap = (marker: Marker) => {
     marker.addTo(demoMap.value!);
   };
 
-  const removeBusMarkerFromMap = (id: number, type: BusMarkerType, serviceCode: string) => {
-    console.log("called with ", id)
+  // Remove specific marker
+  const removeBusMarker = (id: number, type: BusMarkerType, serviceCode: string) => {
     demoMap.value?.eachLayer((layer: L.Layer) => {
       if (
         layer instanceof L.Marker &&
-        layer.getIcon().options.className?.includes("bus") &&
-        layer.getIcon().options.className?.includes(`${id}`) && 
-        layer.getIcon().options.className?.includes(type) &&
-        layer.getIcon().options.className?.includes(serviceCode)
+        layer.getIcon().options.className?.includes(`busIcon-${type}-${serviceCode}-${id}`)
       ) {
-        console.log("removing layer", layer)
         demoMap.value?.removeLayer(layer);
-        ; // remove one at a time
       }
     });
   };
 
+  // Remove all
   const removeBusMarkers = () => {
     busMarkers.value = [];
   };
@@ -112,11 +89,10 @@ export const useMapStore = defineStore("map", () => {
     createMap,
     removeLayers,
     busMarkers,
-    createBusMarkers,
+    addMarkerToMap,
+    removeBusMarker,
     removeBusMarkers,
     removeWaypointMarkers,
-    addMarkerToMap,
-    removeBusMarkerFromMap,
     busLanes,
     addBusLane,
     removeBusLanes,

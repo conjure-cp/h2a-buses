@@ -5,7 +5,7 @@ import InputNumber, {
   type InputNumberInterface,
 } from "@/components/InputNumber.vue";
 import MultiSelect from "primevue/multiselect";
-import { BusLane, generateRoutingControl, routeFound } from "@/routing/control";
+import { BusLane, generateRoutingControl } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
 import type { BusLine, RouteOptions } from "@/utils/types";
 import L from "leaflet";
@@ -13,15 +13,12 @@ import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
 
 const mapStore = useMapStore();
-const {
-  demoMap: demoMapStore,
-  busMarkers: busMarkersStore,
-  busLanes,
-} = storeToRefs(mapStore);
+const { demoMap, busLanes } = storeToRefs(mapStore);
 const {
   createMap,
   removeLayers,
   removeBusMarkers,
+  removeWaypointMarkers,
   addBusLane,
   removeBusLanes,
 } = mapStore;
@@ -33,7 +30,7 @@ const routeOptions = ref<
   }[]
 >([]);
 const selectedRoutes = ref<RouteOptions[]>([]);
-
+const timerIDArr: number[] = [];
 const stopSim = ref(false);
 
 fetch("json/available_lines.json")
@@ -104,8 +101,8 @@ const findRoutes = () => {
           data.serviceCode
         );
         const route = new L.Polyline(busLane.routeData.coordinates);
-        routeFound(data.waypoints);
-        route.addTo(demoMapStore.value as L.Map);
+        removeWaypointMarkers();
+        route.addTo(demoMap.value as L.Map);
         addBusLane(busLane);
       } else {
         // otherwise call osrm API and cache route coordinates
@@ -126,29 +123,32 @@ const simulate = () => {
     const hybridBuses = (lane as BusLane).markers.get("Hybrid");
     const coordArrLen = coordArr.length;
     coordArr.forEach((coord: L.LatLng, j: number) => {
-      setTimeout(() => {
-        // busMarkersStore.value[i * 3].setLatLng([coord.lat, coord.lng]);
-        ICBuses?.forEach((bus: L.Marker, idx: number) => {
-          bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-        });
-      }, 100 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          ICBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 100 * j)
+      );
 
-      setTimeout(() => {
-        // busMarkersStore.value[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
-        EVBuses?.forEach((bus: L.Marker, idx: number) => {
-          bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-        });
-      }, 125 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          EVBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 125 * j)
+      );
 
-      setTimeout(() => {
-        hybridBuses?.forEach((bus: L.Marker, idx: number) => {
-          bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-        });
-        // busMarkersStore.value[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
-        if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
-          simulateReverse();
-        }
-      }, 150 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          hybridBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
+            simulateReverse();
+          }
+        }, 150 * j)
+      );
     });
   });
 };
@@ -162,34 +162,40 @@ const simulateReverse = () => {
     const hybridBuses = (lane as BusLane).markers.get("Hybrid");
     const coordArrLen = coordArr.length;
     coordArr.forEach((coord: L.LatLng, j: number) => {
-      setTimeout(() => {
-        // busMarkersStore.value[i * 3].setLatLng([coord.lat, coord.lng]);
-        ICBuses?.forEach((bus: L.Marker, idx: number) => {
-          bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-        });
-      }, 100 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          ICBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 100 * j)
+      );
 
-      setTimeout(() => {
-        // busMarkersStore.value[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
-        EVBuses?.forEach((bus: L.Marker, idx: number) => {
-          bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-        });
-      }, 125 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          EVBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 125 * j)
+      );
 
-      setTimeout(() => {
-        // busMarkersStore.value[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
-        hybridBuses?.forEach((bus: L.Marker, idx: number) => {
-          bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-        });
-        if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
-          simulate();
-        }
-      }, 150 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          hybridBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
+            simulate();
+          }
+        }, 150 * j)
+      );
     });
   });
 };
 const stopSimulation = () => {
-  stopSim.value = true;
+  while (timerIDArr.length) {
+    clearTimeout(timerIDArr.pop());
+  }
+  // stopSim.value = true;
 };
 
 onMounted(() => {
@@ -221,7 +227,6 @@ onMounted(() => {
       >
         <span class="self-center text-sm">
           {{ lane.label }}
-          <!-- {{ `${route.line} ${route.origin} - ${route.destination}` }} -->
         </span>
         <div class="flex flex-col gap-y-1">
           <div class="text-sm text-red-500 text-center font-bold">IC</div>
@@ -297,7 +302,7 @@ onMounted(() => {
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="
             () => {
-              stopSim = false;
+              // stopSim = false;
               simulate();
             }
           "

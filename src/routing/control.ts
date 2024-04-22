@@ -1,4 +1,4 @@
-import L, { marker } from "leaflet";
+import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
 import { busIconColorMap } from "@/utils/helper";
@@ -91,9 +91,9 @@ export class BusLane {
   }
 
   removeMarker(type: BusMarkerType, id: number) {
-    const { removeBusMarkerFromMap } = useMapStore()
+    const { removeBusMarker } = useMapStore()
     this.markers.get(type)?.pop()
-    removeBusMarkerFromMap(id, type, this.serviceCode)
+    removeBusMarker(id, type, this.serviceCode)
   }
 
   // Very ugly solution to remove all markers
@@ -113,7 +113,7 @@ export class BusLane {
 
 export const generateRoutingControl = (data: RouteOptions) => {
   const { demoMap: map } = storeToRefs(useMapStore());
-  const { addBusLane } = useMapStore();
+  const { addBusLane, removeWaypointMarkers } = useMapStore();
   /**
    * This implementation relies on OSRM's demo server (https://router.project-osrm.org/route/v1) by default.
    * At this moment, the demo server is no longer maintained, and its SSL certificate has expired.
@@ -147,7 +147,7 @@ export const generateRoutingControl = (data: RouteOptions) => {
 
       // Add route to map
       const route = new L.Polyline(busLane.routeData.coordinates);
-      routeFound(data.waypoints);
+      removeWaypointMarkers();
       route.addTo(map.value as L.Map);
       // Cache route coordinates
       localStorage.setItem(data.serviceCode, JSON.stringify(busLane));
@@ -161,12 +161,4 @@ export const generateRoutingControl = (data: RouteOptions) => {
 
   routingControl.route();
   return routingControl;
-};
-
-export const routeFound = (waypoints: L.LatLng[]) => {
-  const { createBusMarkers, removeWaypointMarkers } = useMapStore();
-
-  // createBusMarkers(waypoints);
-
-  removeWaypointMarkers();
 };
