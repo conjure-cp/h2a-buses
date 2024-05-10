@@ -1,21 +1,22 @@
 import { ref } from "vue";
-import L from "leaflet";
+import L, { Marker } from "leaflet";
 import { defineStore } from "pinia";
 import { busIconColors } from "@/utils/helper";
+import type { BusLane } from "@/routing/control";
+import type { BusMarkerType } from "@/utils/types";
 
 export const useMapStore = defineStore("map", () => {
   // Routing related
-  const addedRoutesCoords = ref<L.LatLng[][]>([]);
-  const addedRoutesCoordsReverseOrder = ref<L.LatLng[][]>([]);
+  const busLanes = ref<BusLane[]>([]);
 
-  const addRouteCoords = (coords: L.LatLng[]) => {
-    addedRoutesCoords.value.push(coords);
-    addedRoutesCoordsReverseOrder.value.push(coords.slice().reverse());
+  const addBusLane = (lane: BusLane) => {
+    busLanes.value.push(lane);
   };
 
-  const removeRouteCoords = () => {
-    addedRoutesCoords.value = [];
-    addedRoutesCoordsReverseOrder.value = [];
+  // Bulk delete
+  // TODO: Consider removing single lane as well
+  const removeBusLanes = () => {
+    busLanes.value = [];
   };
 
   // Routing related
@@ -43,7 +44,7 @@ export const useMapStore = defineStore("map", () => {
         demoMap.value?.removeLayer(layer);
       }
     });
-  }
+  };
 
   const removeWaypointMarkers = () => {
     let waypointMarkers = new L.FeatureGroup();
@@ -61,25 +62,31 @@ export const useMapStore = defineStore("map", () => {
     demoMap.value?.removeLayer(waypointMarkers);
   };
 
-  //   TODO: Update this implementation. Currenly only 3 markers
-  const createBusMarkers = (waypoints: L.LatLng[]) => {
-    for (let i = 0; i < busIconColors.length; i++) {
-      const icon = L.divIcon({
-        html: `<i class="fa-solid fa-bus fa-2xl" style="color: ${busIconColors[i]};"></i>`,
-        className: `busIcon${i}`,
-      });
-
-      const marker = L.marker(
-        [waypoints[0].lat + i / 1000, waypoints[0].lng + i / 1000],
-        {
-          icon: icon,
-        }
-      );
-      busMarkers.value.push(marker);
-      marker.addTo(demoMap.value!);
-    }
+  const addMarkerToMap = (marker: Marker) => {
+    busMarkers.value.push(marker);
+    marker.addTo(demoMap.value!);
   };
 
+  // Remove specific marker
+  const removeBusMarker = (
+    id: number,
+    type: BusMarkerType,
+    serviceCode: string
+  ) => {
+    demoMap.value?.eachLayer((layer: L.Layer) => {
+      if (
+        layer instanceof L.Marker &&
+        layer
+          .getIcon()
+          .options.className?.includes(`busIcon-${type}-${serviceCode}-${id}`)
+      ) {
+        demoMap.value?.removeLayer(layer);
+      }
+    });
+    busMarkers.value.shift();
+  };
+
+  // Remove all
   const removeBusMarkers = () => {
     busMarkers.value = [];
   };
@@ -90,12 +97,12 @@ export const useMapStore = defineStore("map", () => {
     createMap,
     removeLayers,
     busMarkers,
-    createBusMarkers,
+    addMarkerToMap,
+    removeBusMarker,
     removeBusMarkers,
     removeWaypointMarkers,
-    addedRoutesCoords,
-    addedRoutesCoordsReverseOrder,
-    addRouteCoords,
-    removeRouteCoords
+    busLanes,
+    addBusLane,
+    removeBusLanes,
   };
 });

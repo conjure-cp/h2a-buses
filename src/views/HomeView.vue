@@ -5,47 +5,37 @@ import InputNumber, {
   type InputNumberInterface,
 } from "@/components/InputNumber.vue";
 import MultiSelect from "primevue/multiselect";
-import { generateRoutingControl, routeFound } from "@/routing/control";
+import { BusLane, generateRoutingControl } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
-import type { BusLine, RouteFoundEventData } from "@/utils/types";
+import type { BusLine, RouteOptions } from "@/utils/types";
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
+import type {
+  InputNumberPassThroughAttributes,
+  InputNumberPassThroughOptions,
+} from "primevue/inputnumber";
 
 const mapStore = useMapStore();
-const {
-  demoMap: demoMapStore,
-  busMarkers: busMarkersStore,
-  addedRoutesCoords: addedRoutesCoordsStore,
-  addedRoutesCoordsReverseOrder,
-} = storeToRefs(mapStore);
+const { demoMap, busLanes, busMarkers } = storeToRefs(mapStore);
 const {
   createMap,
   removeLayers,
   removeBusMarkers,
-  addRouteCoords,
-  removeRouteCoords,
+  removeWaypointMarkers,
+  addBusLane,
+  removeBusLanes,
 } = mapStore;
 
 const routeOptions = ref<
   {
     label: string;
-    value: {
-      line: string;
-      serviceCode: string;
-      waypoints: L.LatLng[];
-    };
+    value: RouteOptions;
   }[]
 >([]);
-const selectedRoutes = ref<
-  {
-    line: string;
-    serviceCode: string;
-    waypoints: L.LatLng[];
-  }[]
->([]);
-
-const stopSim = ref(false);
+const selectedRoutes = ref<RouteOptions[]>([]);
+const isSimRunning = ref(false);
+const timerIDArr: number[] = [];
 
 fetch("json/available_lines.json")
   .then((resp) => resp.json())
@@ -67,6 +57,8 @@ fetch("json/available_lines.json")
             label: `${data.line_name} ${data.origin} - ${data.destination}`,
             value: {
               line: data.line_name,
+              origin: data.origin,
+              destination: data.destination,
               serviceCode: data.service_code,
               waypoints: route,
             },
@@ -84,15 +76,15 @@ const inputNumberProps = ref<InputNumberInterface>({
       root: "order-2 mx-1 w-[35%] px-2 py-1 border text-sm text-center h-full bg-transparent",
     },
     incrementButton: {
-      root: "order-3 border-0 rounded",
+      root: "order-3 border-0 rounded !cursor-pointer",
     },
     decrementButton: {
-      root: "order-1 border-0 rounded",
+      root: "order-1 border-0 rounded !cursor-pointer",
     },
   },
   min: 0,
   max: 3,
-  isDisabled: false,
+  isDisabled: true,
   inputWrapper: " basis-1/3",
 });
 
@@ -103,90 +95,125 @@ const findRoutes = () => {
   // pop every element from the bus marker arr
   removeBusMarkers();
 
-  // Clean route coords
-  removeRouteCoords();
+  // remove all buslanes
+  removeBusLanes();
 
   if (selectedRoutes.value.length !== 0) {
-    selectedRoutes.value.forEach(
-      (data: { line: string; serviceCode: string; waypoints: L.LatLng[] }) => {
-        if (localStorage.getItem(data.serviceCode)) {
-          const routeData: RouteFoundEventData = JSON.parse(
-            localStorage.getItem(data.serviceCode)!
-          );
-          const route = new L.Polyline(routeData.coordinates);
-          routeFound(data.waypoints);
-          route.addTo(demoMapStore.value as L.Map);
-
-          addRouteCoords(routeData.coordinates);
-        } else {
-          // otherwise call osrm API and cache route coordinates
-          generateRoutingControl(data.serviceCode, data.waypoints);
-        }
+    selectedRoutes.value.forEach((data: RouteOptions) => {
+      if (localStorage.getItem(data.serviceCode)) {
+        const busLane: BusLane = BusLane.generateFromLocalStorage(
+          data.serviceCode
+        );
+        const route = new L.Polyline(busLane.routeData.coordinates);
+        removeWaypointMarkers();
+        route.addTo(demoMap.value as L.Map);
+        addBusLane(busLane);
+      } else {
+        // otherwise call osrm API and cache route coordinates
+        generateRoutingControl(data);
       }
-    );
+    });
   } else {
     alert("Please select a route!");
   }
 };
 
 const simulate = () => {
-  let numSelectedRoutes = addedRoutesCoordsStore.value.length;
-  addedRoutesCoordsStore.value.forEach((coordArr: L.LatLng[], i: number) => {
-    let coordArrLen = coordArr.length;
+  let numSelectedLanes = busLanes.value.length;
+  busLanes.value.forEach((lane, i: number) => {
+    const coordArr = (lane as BusLane).routeData.coordinates;
+    const ICBuses = (lane as BusLane).markers.get("IC");
+    const EVBuses = (lane as BusLane).markers.get("EV");
+    const hybridBuses = (lane as BusLane).markers.get("Hybrid");
+    const coordArrLen = coordArr.length;
     coordArr.forEach((coord: L.LatLng, j: number) => {
-      setTimeout(() => {
-        busMarkersStore.value[i * 3].setLatLng([coord.lat, coord.lng]);
-      }, 100 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          ICBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 100 * j)
+      );
 
-      setTimeout(() => {
-        busMarkersStore.value[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
-      }, 125 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          EVBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 125 * j)
+      );
 
-      setTimeout(() => {
-        busMarkersStore.value[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
-        if (i === numSelectedRoutes - 1 && j === coordArrLen - 1) {
-          simulateReverse();
-        }
-      }, 150 * j);
+      timerIDArr.push(
+        setTimeout(() => {
+          hybridBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
+            simulateReverse();
+          }
+        }, 150 * j)
+      );
     });
   });
 };
 
 const simulateReverse = () => {
-  let numSelectedRoutes = addedRoutesCoordsReverseOrder.value.length;
-  addedRoutesCoordsReverseOrder.value.forEach(
-    (coordArr: L.LatLng[], i: number) => {
-      let coordArrLen = coordArr.length;
-      coordArr.forEach((coord: L.LatLng, j: number) => {
+  const numSelectedLanes = busLanes.value.length;
+  busLanes.value.forEach((lane, i: number) => {
+    const coordArr = (lane as BusLane).coordinatesReverse;
+    const ICBuses = (lane as BusLane).markers.get("IC");
+    const EVBuses = (lane as BusLane).markers.get("EV");
+    const hybridBuses = (lane as BusLane).markers.get("Hybrid");
+    const coordArrLen = coordArr.length;
+    coordArr.forEach((coord: L.LatLng, j: number) => {
+      timerIDArr.push(
         setTimeout(() => {
-          busMarkersStore.value[i * 3].setLatLng([coord.lat, coord.lng]);
-        }, 100 * j);
+          ICBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 100 * j)
+      );
 
+      timerIDArr.push(
         setTimeout(() => {
-          busMarkersStore.value[i * 3 + 1].setLatLng([coord.lat, coord.lng]);
-        }, 125 * j);
+          EVBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+        }, 125 * j)
+      );
 
+      timerIDArr.push(
         setTimeout(() => {
-          busMarkersStore.value[i * 3 + 2].setLatLng([coord.lat, coord.lng]);
-          if (i === numSelectedRoutes - 1 && j === coordArrLen - 1) {
+          hybridBuses?.forEach((bus: L.Marker, idx: number) => {
+            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
+          });
+          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
             simulate();
           }
-        }, 150 * j);
-      });
-    }
-  );
+        }, 150 * j)
+      );
+    });
+  });
 };
 const stopSimulation = () => {
-  stopSim.value = true;
+  ((
+    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+      .root as InputNumberPassThroughAttributes
+  ).class as string) = (
+    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+      .root as InputNumberPassThroughAttributes
+  ).class.replace(" pointer-events-none", "");
+
+  isSimRunning.value = false;
+
+  while (timerIDArr.length) {
+    clearTimeout(timerIDArr.pop());
+  }
 };
 
 onMounted(() => {
   createMap();
 });
-
-const dummyModelVal1 = ref(0);
-const dummyModelVal2 = ref(0);
-const dummyModelVal3 = ref(0);
 </script>
 
 <template>
@@ -197,6 +224,7 @@ const dummyModelVal3 = ref(0);
       <MultiSelect
         v-model="selectedRoutes"
         placeholder="Select Routes"
+        :disabled="isSimRunning"
         filter
         :options="routeOptions"
         optionLabel="label"
@@ -206,55 +234,69 @@ const dummyModelVal3 = ref(0);
         :virtualScrollerOptions="{ itemSize: 25 }"
       />
       <!-- TODO: Refactor -->
-      <div class="flex flex-row gap-x-2 justify-center">
+      <div
+        v-for="(lane, idx) in busLanes"
+        class="flex flex-row gap-x-2 justify-center"
+        :key="`num-input-container-${idx}`"
+      >
         <span class="self-center text-sm">
-          2 Townhill - Duloch Park & Fife Leisure Park
+          {{ lane.label }}
         </span>
         <div class="flex flex-col gap-y-1">
           <div class="text-sm text-red-500 text-center font-bold">IC</div>
           <InputNumber
-            v-model="dummyModelVal1"
+            :modelValue="lane.numICMarkers"
             :inputProps="inputNumberProps"
+            @increase="
+              () => {
+                if (lane.numICMarkers! < inputNumberProps.max!)
+                  lane.addMarker('IC');
+              }
+            "
+            @decrease="
+              () => {
+                if (lane.numICMarkers! > inputNumberProps.min!)
+                  lane.removeMarker('IC', lane.numICMarkers!);
+              }
+            "
           />
         </div>
         <div class="flex flex-col gap-y-1">
           <div class="text-sm text-green-500 text-center font-bold">EV</div>
           <InputNumber
-            v-model="dummyModelVal2"
+            :modelValue="lane.numEVMarkers"
             :inputProps="inputNumberProps"
+            @increase="
+              () => {
+                if (lane.numEVMarkers! < inputNumberProps.max!)
+                  lane.addMarker('EV');
+              }
+            "
+            @decrease="
+              () => {
+                if (lane.numEVMarkers! > inputNumberProps.min!)
+                  lane.removeMarker('EV', lane.numEVMarkers!);
+              }
+            "
           />
         </div>
         <div class="flex flex-col gap-y-1">
           <div class="text-sm text-blue-500 text-center font-bold">Hybrid</div>
           <InputNumber
-            v-model="dummyModelVal3"
+            :modelValue="lane.numHybridMarkers"
             :inputProps="inputNumberProps"
-          />
-        </div>
-      </div>
-      <div class="flex flex-row gap-x-2 justify-center">
-        <span class="self-center text-sm">
-          99 St Andrews bus station - Dundee City Centre
-        </span>
-        <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-red-500 text-center font-bold">IC</div>
-          <InputNumber
-            v-model="dummyModelVal1"
-            :inputProps="inputNumberProps"
-          />
-        </div>
-        <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-green-500 text-center font-bold">EV</div>
-          <InputNumber
-            v-model="dummyModelVal2"
-            :inputProps="inputNumberProps"
-          />
-        </div>
-        <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-blue-500 text-center font-bold">Hybrid</div>
-          <InputNumber
-            v-model="dummyModelVal3"
-            :inputProps="inputNumberProps"
+            @increase="
+              () => {
+                if (lane.numHybridMarkers! < inputNumberProps.max!)
+                  lane.addMarker('Hybrid');
+              }
+            "
+            @decrease="
+              () => {
+                if (lane.numHybridMarkers! > inputNumberProps.min!)
+                  lane.removeMarker('Hybrid', lane.numHybridMarkers!);
+              }
+            "
           />
         </div>
       </div>
@@ -262,6 +304,7 @@ const dummyModelVal3 = ref(0);
       <div class="flex gap-x-4 justify-center">
         <button
           type="button"
+          :disabled="isSimRunning"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="findRoutes"
         >
@@ -271,10 +314,19 @@ const dummyModelVal3 = ref(0);
 
         <button
           type="button"
+          :disabled="busMarkers.length === 0 || isSimRunning ? true : false"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="
             () => {
-              stopSim = false;
+              (
+                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                  .root as InputNumberPassThroughAttributes
+              ).class =
+                (
+                  (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                    .root as InputNumberPassThroughAttributes
+                ).class + ' pointer-events-none';
+              isSimRunning = true;
               simulate();
             }
           "
@@ -284,6 +336,7 @@ const dummyModelVal3 = ref(0);
         </button>
         <button
           type="button"
+          :disabled="!isSimRunning"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="stopSimulation"
         >
