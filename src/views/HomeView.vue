@@ -11,9 +11,13 @@ import type { BusLine, RouteOptions } from "@/utils/types";
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
+import type {
+  InputNumberPassThroughAttributes,
+  InputNumberPassThroughOptions,
+} from "primevue/inputnumber";
 
 const mapStore = useMapStore();
-const { demoMap, busLanes } = storeToRefs(mapStore);
+const { demoMap, busLanes, busMarkers } = storeToRefs(mapStore);
 const {
   createMap,
   removeLayers,
@@ -30,8 +34,8 @@ const routeOptions = ref<
   }[]
 >([]);
 const selectedRoutes = ref<RouteOptions[]>([]);
+const isSimRunning = ref(false);
 const timerIDArr: number[] = [];
-const stopSim = ref(false);
 
 fetch("json/available_lines.json")
   .then((resp) => resp.json())
@@ -72,15 +76,15 @@ const inputNumberProps = ref<InputNumberInterface>({
       root: "order-2 mx-1 w-[35%] px-2 py-1 border text-sm text-center h-full bg-transparent",
     },
     incrementButton: {
-      root: "order-3 border-0 rounded",
+      root: "order-3 border-0 rounded !cursor-pointer",
     },
     decrementButton: {
-      root: "order-1 border-0 rounded",
+      root: "order-1 border-0 rounded !cursor-pointer",
     },
   },
   min: 0,
   max: 3,
-  isDisabled: false,
+  isDisabled: true,
   inputWrapper: " basis-1/3",
 });
 
@@ -192,10 +196,19 @@ const simulateReverse = () => {
   });
 };
 const stopSimulation = () => {
+  ((
+    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+      .root as InputNumberPassThroughAttributes
+  ).class as string) = (
+    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+      .root as InputNumberPassThroughAttributes
+  ).class.replace(" pointer-events-none", "");
+
+  isSimRunning.value = false;
+
   while (timerIDArr.length) {
     clearTimeout(timerIDArr.pop());
   }
-  // stopSim.value = true;
 };
 
 onMounted(() => {
@@ -211,6 +224,7 @@ onMounted(() => {
       <MultiSelect
         v-model="selectedRoutes"
         placeholder="Select Routes"
+        :disabled="isSimRunning"
         filter
         :options="routeOptions"
         optionLabel="label"
@@ -290,6 +304,7 @@ onMounted(() => {
       <div class="flex gap-x-4 justify-center">
         <button
           type="button"
+          :disabled="isSimRunning"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="findRoutes"
         >
@@ -299,10 +314,19 @@ onMounted(() => {
 
         <button
           type="button"
+          :disabled="busMarkers.length === 0 || isSimRunning ? true : false"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="
             () => {
-              // stopSim = false;
+              (
+                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                  .root as InputNumberPassThroughAttributes
+              ).class =
+                (
+                  (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                    .root as InputNumberPassThroughAttributes
+                ).class + ' pointer-events-none';
+              isSimRunning = true;
               simulate();
             }
           "
@@ -312,6 +336,7 @@ onMounted(() => {
         </button>
         <button
           type="button"
+          :disabled="!isSimRunning"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="stopSimulation"
         >

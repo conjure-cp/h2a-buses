@@ -63,19 +63,27 @@ export const useMapStore = defineStore("map", () => {
   };
 
   const addMarkerToMap = (marker: Marker) => {
+    busMarkers.value.push(marker);
     marker.addTo(demoMap.value!);
   };
 
   // Remove specific marker
-  const removeBusMarker = (id: number, type: BusMarkerType, serviceCode: string) => {
+  const removeBusMarker = (
+    id: number,
+    type: BusMarkerType,
+    serviceCode: string
+  ) => {
     demoMap.value?.eachLayer((layer: L.Layer) => {
       if (
         layer instanceof L.Marker &&
-        layer.getIcon().options.className?.includes(`busIcon-${type}-${serviceCode}-${id}`)
+        layer
+          .getIcon()
+          .options.className?.includes(`busIcon-${type}-${serviceCode}-${id}`)
       ) {
         demoMap.value?.removeLayer(layer);
       }
     });
+    busMarkers.value.shift();
   };
 
   // Remove all
