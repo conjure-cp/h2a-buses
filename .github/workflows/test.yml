@@ -3,6 +3,9 @@ name: Build test
 on:
   workflow_dispatch:        # can be triggered manually
   pull_request:             # and for PRs
+  push:
+    branches:
+      - main
 
 jobs:
   test:
@@ -21,4 +24,4 @@ jobs:
           npm ci
           npm run build
           # creates a .nojekyll file in the out directory to tell GitHub Pages not to treat the site as a Jekyll project.
-          # touch build/.nojekyll
+          touch dist/.nojekyll
