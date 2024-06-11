@@ -99,19 +99,16 @@ const findRoutes = () => {
   removeBusLanes();
 
   if (selectedRoutes.value.length !== 0) {
-    selectedRoutes.value.forEach((data: RouteOptions) => {
-      if (localStorage.getItem(data.serviceCode)) {
-        const busLane: BusLane = BusLane.generateFromLocalStorage(
-          data.serviceCode
-        );
-        const route = new L.Polyline(busLane.routeData.coordinates);
-        removeWaypointMarkers();
-        route.addTo(demoMap.value as L.Map);
-        addBusLane(busLane);
-      } else {
-        // otherwise call osrm API and cache route coordinates
-        generateRoutingControl(data);
-      }
+    selectedRoutes.value.forEach(async (data: RouteOptions) => {
+      // fetch data from json directly
+      const busLane: BusLane = await BusLane.generateFromJSON(data.serviceCode);
+      const route = new L.Polyline(busLane.routeData.coordinates);
+      removeWaypointMarkers();
+      route.addTo(demoMap.value as L.Map);
+      addBusLane(busLane);
+
+      // OSRM API can be called using the function below if the data is not present
+      // generateRoutingControl(data);
     });
   } else {
     alert("Please select a route!");
@@ -210,6 +207,11 @@ const stopSimulation = () => {
     clearTimeout(timerIDArr.pop());
   }
 };
+
+// Used to download JSONs containing route data
+// const downloadAll = () => {
+//   routeOptions.value.forEach((option) => generateRoutingControl(option.value));
+// };
 
 onMounted(() => {
   createMap();
@@ -343,6 +345,15 @@ onMounted(() => {
           <i class="fa-solid fa-stop mr-2" />
           Stop
         </button>
+
+        <!-- <button
+          type="button"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          @click="downloadAll"
+        >
+          <i class="fa-solid fa-download mr-2" />
+          Download All
+        </button> -->
       </div>
     </Card>
   </div>
