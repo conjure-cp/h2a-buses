@@ -1,0 +1,28 @@
+{
+  "service_code": "FAZ1",
+  "line_name": "AZ1",
+  "origin": "Dunfermline Bus Station",
+  "destination": "Halbeath Park and Ride",
+  "stops": [
+    [
+      56.072114,
+      -3.463343
+    ],
+    [
+      56.08028,
+      -3.40855
+    ],
+    [
+      56.06419,
+      -3.39347
+    ],
+    [
+      56.06452,
+      -3.39325
+    ],
+    [
+      56.085069,
+      -3.388972
+    ]
+  ]
+}
