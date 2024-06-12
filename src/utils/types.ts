@@ -14,7 +14,7 @@ export type RouteOptions = {
   waypoints: L.LatLng[];
 }
 
-export type BusMarkerType = "IC" | "EV" | "Hybrid"
+export type BusMarkerType = "IC" | "EV" | "Hydrogen"
 
 export type BusLaneRoute = {
   coordinates: L.LatLng[];

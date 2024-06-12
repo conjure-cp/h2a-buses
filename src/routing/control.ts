@@ -31,8 +31,8 @@ export class BusLane {
     return this.markers.get("IC")?.length;
   }
 
-  get numHybridMarkers() {
-    return this.markers.get("Hybrid")?.length;
+  get numHydrogenMarkers() {
+    return this.markers.get("Hydrogen")?.length;
   }
 
   /**
@@ -109,7 +109,7 @@ export class BusLane {
 
   /**
    *
-   * @param markerType : "IC" | "EV" | "Hybrid"
+   * @param markerType : "IC" | "EV" | "Hydrogen"
    * @returns { 0, 1, 2}
    */
   _mapMarkerTypeToIdx(markerType: BusMarkerType) {
