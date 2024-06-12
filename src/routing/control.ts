@@ -14,7 +14,7 @@ export class BusLane {
   markers: Map<BusMarkerType, L.Marker[]> = new Map([
     ["EV", []],
     ["IC", []],
-    ["Hybrid", []],
+    ["Hydrogen", []],
   ]);
   get coordinatesReverse() {
     return this.routeData?.coordinates.slice().reverse();

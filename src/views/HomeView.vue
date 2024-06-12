@@ -121,7 +121,7 @@ const simulate = () => {
     const coordArr = (lane as BusLane).routeData.coordinates;
     const ICBuses = (lane as BusLane).markers.get("IC");
     const EVBuses = (lane as BusLane).markers.get("EV");
-    const hybridBuses = (lane as BusLane).markers.get("Hybrid");
+    const hydrogenBuses = (lane as BusLane).markers.get("Hydrogen");
     const coordArrLen = coordArr.length;
     coordArr.forEach((coord: L.LatLng, j: number) => {
       timerIDArr.push(
@@ -142,7 +142,7 @@ const simulate = () => {
 
       timerIDArr.push(
         setTimeout(() => {
-          hybridBuses?.forEach((bus: L.Marker, idx: number) => {
+          hydrogenBuses?.forEach((bus: L.Marker, idx: number) => {
             bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
           });
           if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
@@ -160,7 +160,7 @@ const simulateReverse = () => {
     const coordArr = (lane as BusLane).coordinatesReverse;
     const ICBuses = (lane as BusLane).markers.get("IC");
     const EVBuses = (lane as BusLane).markers.get("EV");
-    const hybridBuses = (lane as BusLane).markers.get("Hybrid");
+    const hydrogenBuses = (lane as BusLane).markers.get("Hydrogen");
     const coordArrLen = coordArr.length;
     coordArr.forEach((coord: L.LatLng, j: number) => {
       timerIDArr.push(
@@ -181,7 +181,7 @@ const simulateReverse = () => {
 
       timerIDArr.push(
         setTimeout(() => {
-          hybridBuses?.forEach((bus: L.Marker, idx: number) => {
+          hydrogenBuses?.forEach((bus: L.Marker, idx: number) => {
             bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
           });
           if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
@@ -283,20 +283,20 @@ onMounted(() => {
           />
         </div>
         <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-blue-500 text-center font-bold">Hybrid</div>
+          <div class="text-sm text-blue-500 text-center font-bold">Hydrogen</div>
           <InputNumber
-            :modelValue="lane.numHybridMarkers"
+            :modelValue="lane.numHydrogenMarkers"
             :inputProps="inputNumberProps"
             @increase="
               () => {
-                if (lane.numHybridMarkers! < inputNumberProps.max!)
-                  lane.addMarker('Hybrid');
+                if (lane.numHydrogenMarkers! < inputNumberProps.max!)
+                  lane.addMarker('Hydrogen');
               }
             "
             @decrease="
               () => {
-                if (lane.numHybridMarkers! > inputNumberProps.min!)
-                  lane.removeMarker('Hybrid', lane.numHybridMarkers!);
+                if (lane.numHydrogenMarkers! > inputNumberProps.min!)
+                  lane.removeMarker('Hydrogen', lane.numHydrogenMarkers!);
               }
             "
           />
