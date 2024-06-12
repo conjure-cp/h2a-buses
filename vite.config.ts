@@ -10,6 +10,7 @@ export default defineConfig({
     vue(),
     vueJsx(),
   ],
+  base: "https://conjure-cp.github.io/h2a-buses/",
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
