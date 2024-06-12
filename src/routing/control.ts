@@ -1,7 +1,7 @@
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
-import { busIconColorMap } from "@/utils/helper";
+import { busIconColorMap, downloadJSON } from "@/utils/helper";
 import { useMapStore } from "@/stores/MapStore";
 import type { BusLaneRoute, BusMarkerType, RouteOptions } from "@/utils/types";
 
@@ -14,7 +14,7 @@ export class BusLane {
   markers: Map<BusMarkerType, L.Marker[]> = new Map([
     ["EV", []],
     ["IC", []],
-    ["Hybrid", []]
+    ["Hybrid", []],
   ]);
   get coordinatesReverse() {
     return this.routeData?.coordinates.slice().reverse();
@@ -23,15 +23,15 @@ export class BusLane {
     return `${this.line} ${this.origin} - ${this.destination}`;
   }
 
-  get numEVMarkers(){
-    return this.markers.get("EV")?.length
+  get numEVMarkers() {
+    return this.markers.get("EV")?.length;
   }
 
-  get numICMarkers(){
-    return this.markers.get("IC")?.length
+  get numICMarkers() {
+    return this.markers.get("IC")?.length;
   }
 
-  get numHybridMarkers(){
+  get numHybridMarkers() {
     return this.markers.get("Hybrid")?.length;
   }
 
@@ -40,9 +40,11 @@ export class BusLane {
    * @param serviceCode
    * @returns BusLane
    */
-  static generateFromLocalStorage(serviceCode: string) {
-    const data: BusLane = JSON.parse(localStorage.getItem(serviceCode)!);
+  static async generateFromJSON(serviceCode: string) {
 
+    try{
+    const data = await(await fetch(`route-data/${serviceCode}.json`)).json() as BusLane
+    
     return new BusLane({
       line: data.line,
       origin: data.origin,
@@ -50,6 +52,10 @@ export class BusLane {
       serviceCode: data.serviceCode,
       routeData: data.routeData,
     });
+  } catch(err) {
+    console.log('err occured while fetching route data from json', err)
+    throw(err)
+  }
   }
 
   constructor(data: {
@@ -86,14 +92,14 @@ export class BusLane {
       }
     );
 
-    this.markers.get(type)?.push(marker)
-    addMarkerToMap(marker)
+    this.markers.get(type)?.push(marker);
+    addMarkerToMap(marker);
   }
 
   removeMarker(type: BusMarkerType, id: number) {
-    const { removeBusMarker } = useMapStore()
-    this.markers.get(type)?.pop()
-    removeBusMarker(id, type, this.serviceCode)
+    const { removeBusMarker } = useMapStore();
+    this.markers.get(type)?.pop();
+    removeBusMarker(id, type, this.serviceCode);
   }
 
   // Very ugly solution to remove all markers
@@ -149,8 +155,9 @@ export const generateRoutingControl = (data: RouteOptions) => {
       const route = new L.Polyline(busLane.routeData.coordinates);
       removeWaypointMarkers();
       route.addTo(map.value as L.Map);
-      // Cache route coordinates
-      localStorage.setItem(data.serviceCode, JSON.stringify(busLane));
+
+      // Download JSON - Uncomment and use it when the data needs to be saved as json
+      // downloadJSON(data.serviceCode, JSON.stringify(busLane));
 
       // Add another entry to busLanes array
       addBusLane(busLane);
