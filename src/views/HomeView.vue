@@ -5,7 +5,7 @@ import InputNumber, {
   type InputNumberInterface,
 } from "@/components/InputNumber.vue";
 import MultiSelect from "primevue/multiselect";
-import { BusLane, generateRoutingControl } from "@/routing/control";
+import { BusLane } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
 import type { BusLine, RouteOptions } from "@/utils/types";
 import L from "leaflet";
@@ -35,7 +35,7 @@ const routeOptions = ref<
 >([]);
 const selectedRoutes = ref<RouteOptions[]>([]);
 const isSimRunning = ref(false);
-const timerIDArr: number[] = [];
+const animationFrameId = ref<number[]>([]);
 
 fetch("json/available_lines.json")
   .then((resp) => resp.json())
@@ -115,97 +115,86 @@ const findRoutes = () => {
   }
 };
 
-const simulate = () => {
-  let numSelectedLanes = busLanes.value.length;
-  busLanes.value.forEach((lane, i: number) => {
-    const coordArr = (lane as BusLane).routeData.coordinates;
-    const ICBuses = (lane as BusLane).markers.get("IC");
-    const EVBuses = (lane as BusLane).markers.get("EV");
-    const hydrogenBuses = (lane as BusLane).markers.get("Hydrogen");
-    const coordArrLen = coordArr.length;
-    coordArr.forEach((coord: L.LatLng, j: number) => {
-      timerIDArr.push(
-        setTimeout(() => {
-          ICBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 100 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          EVBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 125 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          hydrogenBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
-            simulateReverse();
-          }
-        }, 150 * j)
-      );
-    });
-  });
+const startSimulation = () => {
+  if (isSimRunning.value) return;
+  isSimRunning.value = true;
+  simulate();
 };
 
-const simulateReverse = () => {
-  const numSelectedLanes = busLanes.value.length;
-  busLanes.value.forEach((lane, i: number) => {
-    const coordArr = (lane as BusLane).coordinatesReverse;
-    const ICBuses = (lane as BusLane).markers.get("IC");
-    const EVBuses = (lane as BusLane).markers.get("EV");
-    const hydrogenBuses = (lane as BusLane).markers.get("Hydrogen");
-    const coordArrLen = coordArr.length;
-    coordArr.forEach((coord: L.LatLng, j: number) => {
-      timerIDArr.push(
-        setTimeout(() => {
-          ICBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 100 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          EVBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 125 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          hydrogenBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
-            simulate();
-          }
-        }, 150 * j)
-      );
-    });
-  });
-};
 const stopSimulation = () => {
-  ((
-    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
-      .root as InputNumberPassThroughAttributes
-  ).class as string) = (
-    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
-      .root as InputNumberPassThroughAttributes
-  ).class.replace(" pointer-events-none", "");
-
   isSimRunning.value = false;
-
-  while (timerIDArr.length) {
-    clearTimeout(timerIDArr.pop());
+  while (animationFrameId.value.length) {
+    cancelAnimationFrame(animationFrameId.value.pop()!);
   }
+};
+
+const simulate = () => {
+  const animateBuses = (
+    markers: L.Marker<any>[] | undefined,
+    speed: number,
+    coordArr: L.LatLng[]
+  ) => {
+    const numCoords = coordArr.length;
+    let startTime: number | undefined;
+    let totalDistance = 0;
+
+    // TODO: `coordArr` should work directly. Investigate the issue and remove the unnecessary mapping
+    const latlngArr = coordArr.map((coord) => L.latLng(coord.lat, coord.lng));
+
+    // Calculate total distance of the route
+    for (let i = 0; i < numCoords - 1; i++) {
+      totalDistance += latlngArr[i].distanceTo(latlngArr[i + 1]);
+    }
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = (timestamp - startTime) / 1000; // Convert to seconds
+      const distanceCovered = speed * elapsed;
+
+      let distanceTraveled = 0;
+      for (let i = 0; i < numCoords - 1; i++) {
+        const segmentDistance = latlngArr[i].distanceTo(latlngArr[i + 1]);
+        if (distanceTraveled + segmentDistance >= distanceCovered) {
+          const factor = (distanceCovered - distanceTraveled) / segmentDistance;
+          const lat =
+            coordArr[i].lat + (coordArr[i + 1].lat - coordArr[i].lat) * factor;
+          const lng =
+            coordArr[i].lng + (coordArr[i + 1].lng - coordArr[i].lng) * factor;
+
+          markers?.forEach((bus, idx) => {
+            bus.setLatLng([lat + idx / 1000, lng + idx / 1000]);
+          });
+          break;
+        }
+        distanceTraveled += segmentDistance;
+      }
+
+      if (distanceCovered < totalDistance) {
+        animationFrameId.value.push(requestAnimationFrame(animate)); // Continue animation
+      } else {
+        // Restart animation loop for continuous movement
+        startTime = timestamp;
+        animationFrameId.value.push(requestAnimationFrame(animate));
+      }
+    };
+
+    animationFrameId.value.push(requestAnimationFrame(animate));
+  };
+
+  busLanes.value.forEach((lane, i) => {
+    const coordArr = lane.routeData.coordinates;
+    const ICBuses = lane.markers.get("IC");
+    const EVBuses = lane.markers.get("EV");
+    const hydrogenBuses = lane.markers.get("Hydrogen");
+
+    const ICSpeed = 200; // Speed in meters per second
+    const EVSpeed = 175;
+    const hydrogenSpeed = 150;
+
+    animateBuses(ICBuses, ICSpeed, coordArr);
+    animateBuses(EVBuses, EVSpeed, coordArr);
+    animateBuses(hydrogenBuses, hydrogenSpeed, coordArr);
+  });
 };
 
 // Used to download JSONs containing route data
@@ -283,7 +272,9 @@ onMounted(() => {
           />
         </div>
         <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-blue-500 text-center font-bold">Hydrogen</div>
+          <div class="text-sm text-blue-500 text-center font-bold">
+            Hydrogen
+          </div>
           <InputNumber
             :modelValue="lane.numHydrogenMarkers"
             :inputProps="inputNumberProps"
@@ -328,8 +319,7 @@ onMounted(() => {
                   (inputNumberProps.ptProps as InputNumberPassThroughOptions)
                     .root as InputNumberPassThroughAttributes
                 ).class + ' pointer-events-none';
-              isSimRunning = true;
-              simulate();
+              startSimulation();
             }
           "
         >
@@ -340,7 +330,18 @@ onMounted(() => {
           type="button"
           :disabled="!isSimRunning"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
-          @click="stopSimulation"
+          @click="
+            () => {
+              ((
+                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                  .root as InputNumberPassThroughAttributes
+              ).class as string) = (
+                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                  .root as InputNumberPassThroughAttributes
+              ).class.replace(' pointer-events-none', '');
+              stopSimulation();
+            }
+          "
         >
           <i class="fa-solid fa-stop mr-2" />
           Stop

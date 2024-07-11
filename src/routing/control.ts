@@ -76,7 +76,7 @@ export class BusLane {
     const { addMarkerToMap } = useMapStore();
     const numMarkers = this.markers.get(type)?.length || 0;
     const icon = L.divIcon({
-      html: `<i class="fa-solid fa-bus fa-2xl" style="color: ${busIconColorMap.get(type)};"></i>`,
+      html: `<i class="fa-solid fa-bus fa-xl" style="color: ${busIconColorMap.get(type)};"></i>`,
       className: `busIcon-${type}-${this.serviceCode}-${numMarkers + 1}`,
     });
 
