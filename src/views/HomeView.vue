@@ -115,6 +115,12 @@ const findRoutes = () => {
   }
 };
 
+const cleanAnimationFrames = () => {
+  while (animationFrameId.value.length) {
+    cancelAnimationFrame(animationFrameId.value.pop()!);
+  }
+};
+
 const startSimulation = () => {
   if (isSimRunning.value) return;
   isSimRunning.value = true;
@@ -123,53 +129,51 @@ const startSimulation = () => {
 
 const stopSimulation = () => {
   isSimRunning.value = false;
-  while (animationFrameId.value.length) {
-    cancelAnimationFrame(animationFrameId.value.pop()!);
-  }
+  cleanAnimationFrames();
 };
 
 const simulate = () => {
-  const animateBuses = (
-    markers: L.Marker<any>[] | undefined,
-    speed: number,
-    coordArr: L.LatLng[]
-  ) => {
+  const animateBuses = (markers, speeds, coordArr) => {
     const numCoords = coordArr.length;
-    let startTime: number | undefined;
+    let startTime;
     let totalDistance = 0;
 
-    // TODO: `coordArr` should work directly. Investigate the issue and remove the unnecessary mapping
-    const latlngArr = coordArr.map((coord) => L.latLng(coord.lat, coord.lng));
+    // Convert coordArr to L.LatLng objects if not already
+    const latLngArr = coordArr.map((coord) => L.latLng(coord.lat, coord.lng));
 
     // Calculate total distance of the route
     for (let i = 0; i < numCoords - 1; i++) {
-      totalDistance += latlngArr[i].distanceTo(latlngArr[i + 1]);
+      totalDistance += latLngArr[i].distanceTo(latLngArr[i + 1]);
     }
 
-    const animate = (timestamp: number) => {
+    const animate = (timestamp) => {
       if (!startTime) startTime = timestamp;
       const elapsed = (timestamp - startTime) / 1000; // Convert to seconds
-      const distanceCovered = speed * elapsed;
 
-      let distanceTraveled = 0;
-      for (let i = 0; i < numCoords - 1; i++) {
-        const segmentDistance = latlngArr[i].distanceTo(latlngArr[i + 1]);
-        if (distanceTraveled + segmentDistance >= distanceCovered) {
-          const factor = (distanceCovered - distanceTraveled) / segmentDistance;
-          const lat =
-            coordArr[i].lat + (coordArr[i + 1].lat - coordArr[i].lat) * factor;
-          const lng =
-            coordArr[i].lng + (coordArr[i + 1].lng - coordArr[i].lng) * factor;
+      markers.forEach((bus, idx) => {
+        const distanceCovered = speeds[idx] * elapsed;
 
-          markers?.forEach((bus, idx) => {
-            bus.setLatLng([lat + idx / 1000, lng + idx / 1000]);
-          });
-          break;
+        let distanceTraveled = 0;
+        for (let i = 0; i < numCoords - 1; i++) {
+          const segmentDistance = latLngArr[i].distanceTo(latLngArr[i + 1]);
+          if (distanceTraveled + segmentDistance >= distanceCovered) {
+            const factor =
+              (distanceCovered - distanceTraveled) / segmentDistance;
+            const lat =
+              latLngArr[i].lat +
+              (latLngArr[i + 1].lat - latLngArr[i].lat) * factor;
+            const lng =
+              latLngArr[i].lng +
+              (latLngArr[i + 1].lng - latLngArr[i].lng) * factor;
+
+            bus.setLatLng([lat, lng]);
+            break;
+          }
+          distanceTraveled += segmentDistance;
         }
-        distanceTraveled += segmentDistance;
-      }
+      });
 
-      if (distanceCovered < totalDistance) {
+      if (markers.some((bus, idx) => speeds[idx] * elapsed < totalDistance)) {
         animationFrameId.value.push(requestAnimationFrame(animate)); // Continue animation
       } else {
         // Restart animation loop for continuous movement
@@ -181,19 +185,26 @@ const simulate = () => {
     animationFrameId.value.push(requestAnimationFrame(animate));
   };
 
-  busLanes.value.forEach((lane, i) => {
+  // Collect all bus markers and assign random speeds
+  busLanes.value.forEach((lane) => {
+    const busMarkers = [];
+    const busSpeeds: number[] = [];
+    let speed = 200; // base speed
     const coordArr = lane.routeData.coordinates;
-    const ICBuses = lane.markers.get("IC");
-    const EVBuses = lane.markers.get("EV");
-    const hydrogenBuses = lane.markers.get("Hydrogen");
+    const markers = [
+      ...(lane.markers.get("IC") || []),
+      ...(lane.markers.get("EV") || []),
+      ...(lane.markers.get("Hydrogen") || []),
+    ];
 
-    const ICSpeed = 200; // Speed in meters per second
-    const EVSpeed = 175;
-    const hydrogenSpeed = 150;
+    // Increase the speed by 15 for each new marker
+    markers.forEach((marker) => {
+      speed = speed + 25;
+      busMarkers.push(marker);
+      busSpeeds.push(speed);
+    });
 
-    animateBuses(ICBuses, ICSpeed, coordArr);
-    animateBuses(EVBuses, EVSpeed, coordArr);
-    animateBuses(hydrogenBuses, hydrogenSpeed, coordArr);
+    animateBuses(busMarkers, busSpeeds, coordArr);
   });
 };
 
