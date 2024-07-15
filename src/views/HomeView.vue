@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import Card from "@/components/Card.vue";
 import InputNumber, {
   type InputNumberInterface,
@@ -133,20 +133,26 @@ const stopSimulation = () => {
 };
 
 const simulate = () => {
-  const animateBuses = (markers, speeds, coordArr) => {
+  const animateBuses = (
+    markers: L.Marker[],
+    speeds: number[],
+    coordArr: L.LatLng[]
+  ) => {
     const numCoords = coordArr.length;
-    let startTime;
+    let startTime: DOMHighResTimeStamp;
     let totalDistance = 0;
 
     // Convert coordArr to L.LatLng objects if not already
-    const latLngArr = coordArr.map((coord) => L.latLng(coord.lat, coord.lng));
+    const latLngArr = coordArr.map((coord: L.LatLng) =>
+      L.latLng(coord.lat, coord.lng)
+    );
 
     // Calculate total distance of the route
     for (let i = 0; i < numCoords - 1; i++) {
       totalDistance += latLngArr[i].distanceTo(latLngArr[i + 1]);
     }
 
-    const animate = (timestamp) => {
+    const animate = (timestamp: DOMHighResTimeStamp) => {
       if (!startTime) startTime = timestamp;
       const elapsed = (timestamp - startTime) / 1000; // Convert to seconds
 
@@ -187,17 +193,18 @@ const simulate = () => {
 
   // Collect all bus markers and assign random speeds
   busLanes.value.forEach((lane) => {
-    const busMarkers = [];
+    const busMarkers: L.Marker[] = [];
     const busSpeeds: number[] = [];
     let speed = 200; // base speed
     const coordArr = lane.routeData.coordinates;
-    const markers = [
-      ...(lane.markers.get("IC") || []),
-      ...(lane.markers.get("EV") || []),
-      ...(lane.markers.get("Hydrogen") || []),
+    // @ts-ignore
+    const markers: L.Marker[] = [
+      ...(lane.markers.get("IC") || ([] as L.Marker[])),
+      ...(lane.markers.get("EV") || ([] as L.Marker[])),
+      ...(lane.markers.get("Hydrogen") || ([] as L.Marker[])),
     ];
 
-    // Increase the speed by 15 for each new marker
+    // Increase the speed by 25 for each new marker
     markers.forEach((marker) => {
       speed = speed + 25;
       busMarkers.push(marker);
@@ -215,6 +222,14 @@ const simulate = () => {
 
 onMounted(() => {
   createMap();
+});
+
+// Cleanup
+onUnmounted(() => {
+  stopSimulation();
+  if (demoMap.value) {
+    demoMap.value.remove();
+  }
 });
 </script>
 

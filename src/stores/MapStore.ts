@@ -40,7 +40,7 @@ export const useMapStore = defineStore("map", () => {
     demoMap.value.on('zoomend', () => {
       const zoomLevel = demoMap.value?.getZoom();
       // Adjust marker size based on `zoom level`
-      document.querySelectorAll('[class*="fa-bus"]').forEach(marker => {
+      document.querySelectorAll('[class*="fa-bus"]').forEach((marker: any) => {
         let { fontSize } = marker.style;
         fontSize =  Number((fontSize as string).slice(0, (fontSize as string).indexOf('r')))
         marker.style.fontSize = `${zoomLevel ?? 13}px`
