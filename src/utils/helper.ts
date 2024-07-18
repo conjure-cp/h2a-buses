@@ -1,7 +1,7 @@
-// IC, EV, Hydrogen
-export const busIconColors = ["#fb5607", "#588157", "#3a86ff"];
+import type { BusType } from "./types";
 
-export const busIconColorMap = new Map<string, string>([
+// IC, EV, Hydrogen
+export const busTypeColorMap = new Map<string, string>([
   ["IC", "#fb5607"],
   ["EV", "#588157"],
   ["Hydrogen", "#3a86ff"],
@@ -25,4 +25,39 @@ export const downloadJSON = (fileName: string, jsonString: string) => {
 
   // Clean up the URL object
   URL.revokeObjectURL(link.href);
+};
+
+// Linear emission functions for different bus types
+export const getEmission = (type: BusType, distance: number) => {
+  switch (type) {
+    case "IC":
+      return 2 * distance;
+
+    case "EV":
+      return 0.5 * distance;
+
+    case "Hydrogen":
+      return 1 * distance;
+
+    default:
+      return 0;
+  }
+};
+
+// Linear cost functions for different bus types
+// TODO: double-check if the cost function should be parametrized by distance
+export const getCost = (type: BusType, distance: number) => {
+  switch (type) {
+    case "IC":
+      return 3 * distance;
+
+    case "EV":
+      return 2 * distance;
+
+    case "Hydrogen":
+      return 2.5 * distance;
+
+    default:
+      return 0;
+  }
 };

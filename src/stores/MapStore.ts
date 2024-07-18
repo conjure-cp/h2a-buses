@@ -1,7 +1,6 @@
 import { ref } from "vue";
 import L, { Marker } from "leaflet";
 import { defineStore } from "pinia";
-import { busIconColors } from "@/utils/helper";
 import type { BusLane } from "@/routing/control";
 import type { BusMarkerType } from "@/utils/types";
 

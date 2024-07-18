@@ -1,7 +1,7 @@
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
-import { busIconColorMap, downloadJSON } from "@/utils/helper";
+import { busTypeColorMap, downloadJSON } from "@/utils/helper";
 import { useMapStore } from "@/stores/MapStore";
 import type { BusLaneRoute, BusMarkerType, RouteOptions } from "@/utils/types";
 
@@ -76,7 +76,7 @@ export class BusLane {
     const { demoMap, addMarkerToMap } = useMapStore();
     const numMarkers = this.markers.get(type)?.length || 0;
     const icon = L.divIcon({
-      html: `<i class="fa-solid fa-bus" style="color: ${busIconColorMap.get(type)}; font-size: ${demoMap?.getZoom() ?? 13}px"></i>`,
+      html: `<i class="fa-solid fa-bus" style="color: ${busTypeColorMap.get(type)}; font-size: ${demoMap?.getZoom() ?? 13}px"></i>`,
       className: `busIcon-${type}-${this.serviceCode}-${numMarkers + 1}`,
     });
 
@@ -89,6 +89,7 @@ export class BusLane {
       ],
       {
         icon: icon,
+        title: type
       }
     );
 
