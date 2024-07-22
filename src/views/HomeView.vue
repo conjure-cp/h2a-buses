@@ -4,6 +4,7 @@ import Card from "@/components/Card.vue";
 import InputNumber, {
   type InputNumberInterface,
 } from "@/components/InputNumber.vue";
+// import RealTimeChart from "@/components/RealTimeChart.vue";
 import MultiSelect from "primevue/multiselect";
 import { BusLane } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
@@ -23,7 +24,6 @@ import {
   Legend,
   type ChartData,
 } from "chart.js";
-import { Line } from "vue-chartjs";
 import { storeToRefs } from "pinia";
 import { cloneDeep } from "lodash";
 import type {
@@ -70,6 +70,12 @@ ChartJS.register(
 
 type ChartLabel = string | number;
 
+const busTypeIdMap: Map<BusType, number> = new Map([
+  ["IC", 0],
+  ["EV", 1],
+  ["Hydrogen", 2],
+]);
+
 const totalEmissionIC = ref(0);
 const totalEmissionEV = ref(0);
 const totalEmissionHydrogen = ref(0);
@@ -97,6 +103,25 @@ const emissionsChartData = ref<ChartData<"line">>({
     },
   ],
 });
+
+// Initialize series data
+const series = ref<{ name: string; data: number[][] }[]>([
+  {
+    name: "IC",
+    data: [],
+  },
+  {
+    name: "EV",
+    data: [],
+  },
+  {
+    name: "Hydrogen",
+    data: [],
+  },
+  // Add more series as needed
+]);
+
+const chartOptions = ref(chartConfig.apexChartOptions);
 
 const emptyEmissionsChartData = () => {
   totalEmissionIC.value = 0;
@@ -134,17 +159,17 @@ const populateEmissionsChartData = () => {
       {
         label: "IC",
         backgroundColor: busTypeColorMap.get("IC"),
-        data: cloneDeep(emissionsICData.value),
+        data: emissionsICData.value.slice(),
       },
       {
         label: "EV",
         backgroundColor: busTypeColorMap.get("EV"),
-        data: cloneDeep(emissionsEVData.value),
+        data: emissionsEVData.value.slice(),
       },
       {
         label: "Hydrogen",
         backgroundColor: busTypeColorMap.get("Hydrogen"),
-        data: cloneDeep(emissionsHydrogenData.value),
+        data: emissionsHydrogenData.value.slice(),
       },
     ],
   };
@@ -354,7 +379,8 @@ const updateCharts = async (
   timestamp: number,
   emissions: number,
   costs: number,
-  type: BusType
+  type: BusType,
+  typeIdx: number
 ) => {
   const getDataByBusType = (
     type: BusType,
@@ -370,22 +396,47 @@ const updateCharts = async (
     }
   };
 
-  const emissionsData = getDataByBusType(type);
-  emissionsLabels.value.push(timestamp);
-  emissionsData.value.push(emissions);
+  series.value[busTypeIdMap.get(type)!].data.push([
+    timestamp,
+    Number(emissions.toFixed(2)),
+  ]);
+  // Remove data points that are outside the x-axis range
+  const currentTime = new Date().getTime();
+  series.value.forEach((s) => {
+    s.data = s.data.filter(
+      (dataPoint) => dataPoint[0] >= currentTime - 5 * 1000
+    );
+  });
 
-  const costsData = getDataByBusType(type, "cost");
-  costsLabels.value.push(timestamp);
-  costsData.value.push(costs);
+  // Dynamically update y-axis max based on the highest value in the series
+  const allDataPoints = series.value.flatMap((s) => s.data);
+  const maxYValue = Math.max(...allDataPoints.map((dataPoint) => dataPoint[1]));
+
+  chartOptions.value = {
+    ...chartOptions.value,
+    yaxis: {
+      ...chartOptions.value.yaxis,
+      max: maxYValue + 10, // Add some padding to the max value
+    },
+  };
+
+  // const emissionsData = getDataByBusType(type);
+  // emissionsLabels.value.push(timestamp);
+  // emissionsData.value.push(emissions);
+
+  // const costsData = getDataByBusType(type, "cost");
+  // costsLabels.value.push(timestamp);
+  // costsData.value.push(costs);
 };
 
 const simulate = () => {
   const animateBuses = (
     markers: L.Marker[],
-    speeds: number[],
+    speed: number, // Single speed for all buses
     coordArr: L.LatLng[],
     direction: ("forward" | "backward")[],
-    types: BusType[]
+    types: BusType[],
+    startDistance: number // Distance at which the next bus starts
   ) => {
     const numCoords = coordArr.length;
     let startTime: DOMHighResTimeStamp;
@@ -395,22 +446,33 @@ const simulate = () => {
     const latLngArr = coordArr.map((coord: L.LatLng) =>
       L.latLng(coord.lat, coord.lng)
     );
-    const latLngArrReversed = cloneDeep(latLngArr).reverse();
+
+    // TODO: TINY bug. Try to find a way to fix it
+    const latLngArrReversed = latLngArr.slice().reverse();
 
     // Calculate total distance of the route
     for (let i = 0; i < numCoords - 1; i++) {
       totalDistance += latLngArr[i].distanceTo(latLngArr[i + 1]);
     }
 
+    // Calculate the time delay for each bus based on the startDistance and speed
+    const timeDelays = markers.map((_, idx) =>
+      idx > 0 ? (startDistance * idx) / speed : 0
+    );
+
     const animate = (timestamp: DOMHighResTimeStamp) => {
       if (!startTime) startTime = timestamp;
       const elapsed = (timestamp - startTime) / 1000; // Convert to seconds
 
       markers.forEach((bus, idx) => {
-        const distanceCovered = speeds[idx] * elapsed;
+        if (elapsed < timeDelays[idx]) return; // Skip if it's not yet time for this bus to start
+
+        const busElapsed = elapsed - timeDelays[idx]; // Adjust elapsed time for this bus
+        const distanceCovered = speed * busElapsed;
         const dir = direction[idx];
         const arr = dir === "forward" ? latLngArr : latLngArrReversed;
         let distanceTraveled = 0;
+
         for (let i = 0; i < numCoords - 1; i++) {
           const segmentDistance = arr[i].distanceTo(arr[i + 1]);
           if (distanceTraveled + segmentDistance >= distanceCovered) {
@@ -449,15 +511,20 @@ const simulate = () => {
         totalCost.value =
           totalCost.value + getCost(types[idx], distanceCovered);
 
-        updateCharts(
-          timestamp / 1000,
-          totalEmission.value,
-          totalCost.value,
-          types[idx]
-        );
+        // updateCharts(
+        //   new Date().getTime(),
+        //   totalEmission.value,
+        //   totalCost.value,
+        //   types[idx],
+        //   idx
+        // );
       });
 
-      if (markers.some((bus, idx) => speeds[idx] * elapsed < totalDistance)) {
+      if (
+        markers.some(
+          (bus, idx) => speed * (elapsed - timeDelays[idx]) < totalDistance
+        )
+      ) {
         animationFrameId.value.push(requestAnimationFrame(animate)); // Continue animation
       } else {
         // Restart animation loop for continuous movement
@@ -474,13 +541,12 @@ const simulate = () => {
     animationFrameId.value.push(requestAnimationFrame(animate));
   };
 
-  // Collect all bus markers and assign random speeds
+  // Collect all bus markers and assign a single speed
   busLanes.value.forEach((lane) => {
     const busMarkers: L.Marker[] = [];
     const movingDirection: ("forward" | "backward")[] = [];
-    const busSpeeds: number[] = [];
     const busTypes: BusType[] = [];
-    let speed = 200; // base speed
+    const speed = 200; // Single speed for all buses
     const coordArr = lane.routeData.coordinates;
     // @ts-ignore
     const markers: L.Marker[] = [
@@ -489,16 +555,18 @@ const simulate = () => {
       ...(lane.markers.get("Hydrogen") || ([] as L.Marker[])),
     ];
 
-    // Increase the speed by 25 for each new marker
-    markers.forEach((marker) => {
-      speed = speed + 25;
+    const startCoord = coordArr[0];
+    markers.forEach((marker, idx) => {
+      marker.setLatLng([
+        startCoord.lat + idx / 5000,
+        startCoord.lng + idx / 5000,
+      ]);
       busMarkers.push(marker);
-      busSpeeds.push(speed);
       movingDirection.push("forward");
       busTypes.push(marker.options.title! as BusType);
     });
 
-    animateBuses(busMarkers, busSpeeds, coordArr, movingDirection, busTypes);
+    animateBuses(busMarkers, speed, coordArr, movingDirection, busTypes, 1000); // 1000 meters as the start distance for the next bus
   });
 };
 
@@ -509,6 +577,8 @@ const simulate = () => {
 
 onMounted(() => {
   createMap();
+
+  setInterval(() => {});
 });
 
 // Cleanup
@@ -524,16 +594,19 @@ onUnmounted(() => {
 <template>
   <div id="map"></div>
   <div class="bg-white" id="charts">
-    <Line
+    <!-- <Line
       key="emissionsChart"
       :data="emissionsChartData"
       :options="chartConfig.options"
-    />
-    <Line
+    /> -->
+    <!-- <Line
       key="costsChart"
       :data="costsChartData"
       :options="chartConfig.options"
-    />
+    /> -->
+    <apexchart type="line" :options="chartOptions" :series="series"></apexchart>
+
+    <!-- <RealTimeChart /> -->
   </div>
   <div class="absolute top-0 right-0 z-[1001] mt-2 mr-2">
     <Card class="flex flex-col gap-y-4">

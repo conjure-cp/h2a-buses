@@ -18,6 +18,7 @@
     "@types/leaflet-routing-machine": "^3.2.8",
     "@types/lodash": "^4.17.7",
     "@vueuse/core": "^10.11.0",
+    "apexcharts": "^3.50.0",
     "chart.js": "^4.4.3",
     "leaflet": "^1.9.4",
     "leaflet-routing-machine": "^3.2.12",
@@ -27,7 +28,8 @@
     "primevue": "^3.49.1",
     "vue": "^3.4.31",
     "vue-chartjs": "^5.3.1",
-    "vue-router": "^4.4.0"
+    "vue-router": "^4.4.0",
+    "vue3-apexcharts": "^1.5.3"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.10.3",
