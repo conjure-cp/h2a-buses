@@ -61,3 +61,10 @@ export const getCost = (type: BusType, distance: number) => {
       return 0;
   }
 };
+
+export const calculateAvg = (arr: number[]) => {
+  if (arr.length === 0) {
+    return 0
+  }
+  return Number((arr.reduce((prev, curr) => prev + curr) / arr.length).toFixed(2))
+}

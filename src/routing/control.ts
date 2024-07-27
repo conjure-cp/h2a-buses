@@ -132,7 +132,6 @@ export const generateRoutingControl = (data: RouteOptions) => {
     fitSelectedRoutes: "smart",
     autoRoute: false,
 
-    // TODO: Try also the matching algorithm
     router: L.Routing.osrmv1({
       serviceUrl: "https://routing.openstreetmap.de/routed-car/route/v1",
     }),

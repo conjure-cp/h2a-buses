@@ -3,6 +3,7 @@ export const options = {
 };
 
 // Define chart options
+// TODO: Add title to the charts and labels to both x and y axis
 export const apexChartOptions: any = {
   chart: {
     id: "realtime",
@@ -19,6 +20,7 @@ export const apexChartOptions: any = {
     zoom: {
       enabled: false,
     },
+    height: '250px'
   },
   dataLabels: {
     enabled: false,
@@ -34,6 +36,5 @@ export const apexChartOptions: any = {
 
   yaxis: {
     tickAmount: 5, // Define the number of ticks on the y-axis
-
-  }
+  },
 };

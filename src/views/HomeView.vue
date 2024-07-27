@@ -1,31 +1,18 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import Card from "@/components/Card.vue";
 import InputNumber, {
   type InputNumberInterface,
 } from "@/components/InputNumber.vue";
-// import RealTimeChart from "@/components/RealTimeChart.vue";
 import MultiSelect from "primevue/multiselect";
 import { BusLane } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
-import { getEmission, getCost, busTypeColorMap } from "@/utils/helper";
+import { getEmission, getCost, calculateAvg } from "@/utils/helper";
 import type { BusLine, BusType, RouteOptions } from "@/utils/types";
 import * as chartConfig from "@/utils/chartConfig";
 import L from "leaflet";
 import "leaflet-routing-machine";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  type ChartData,
-} from "chart.js";
 import { storeToRefs } from "pinia";
-import { cloneDeep } from "lodash";
 import type {
   InputNumberPassThroughAttributes,
   InputNumberPassThroughOptions,
@@ -52,23 +39,6 @@ const selectedRoutes = ref<RouteOptions[]>([]);
 const isSimRunning = ref(false);
 const animationFrameId = ref<number[]>([]);
 const chartUpdateIntervalId = ref<number[]>([]);
-const simTimer = ref(0);
-
-// Chart related
-// Register Chart.js components
-ChartJS.register(
-  Title,
-  Tooltip,
-  Legend,
-  LineElement,
-  PointElement,
-  LinearScale,
-  CategoryScale
-);
-
-// LineChart component
-
-type ChartLabel = string | number;
 
 const busTypeIdMap: Map<BusType, number> = new Map([
   ["IC", 0],
@@ -82,30 +52,9 @@ const totalEmissionHydrogen = ref(0);
 const emissionsICData = ref<number[]>([]);
 const emissionsEVData = ref<number[]>([]);
 const emissionsHydrogenData = ref<number[]>([]);
-const emissionsLabels = ref<ChartLabel[]>([]);
-const emissionsChartData = ref<ChartData<"line">>({
-  labels: [],
-  datasets: [
-    {
-      label: "IC",
-      backgroundColor: busTypeColorMap.get("IC"),
-      data: [],
-    },
-    {
-      label: "EV",
-      backgroundColor: busTypeColorMap.get("EV"),
-      data: [],
-    },
-    {
-      label: "Hydrogen",
-      backgroundColor: busTypeColorMap.get("Hydrogen"),
-      data: [],
-    },
-  ],
-});
 
 // Initialize series data
-const series = ref<{ name: string; data: number[][] }[]>([
+const seriesEmission = ref<{ name: string; data: number[][] }[]>([
   {
     name: "IC",
     data: [],
@@ -121,7 +70,11 @@ const series = ref<{ name: string; data: number[][] }[]>([
   // Add more series as needed
 ]);
 
-const chartOptions = ref(chartConfig.apexChartOptions);
+const isEmissionChartDataEmpty = computed(() => {
+  return seriesEmission.value.every((elem) => elem.data.length === 0);
+});
+
+const chartOptionsEmission = ref(chartConfig.apexChartOptions);
 
 const emptyEmissionsChartData = () => {
   totalEmissionIC.value = 0;
@@ -130,50 +83,29 @@ const emptyEmissionsChartData = () => {
   emissionsICData.value = [];
   emissionsEVData.value = [];
   emissionsHydrogenData.value = [];
-  emissionsChartData.value = {
-    labels: [],
-    datasets: [
-      {
-        label: "IC",
-        backgroundColor: busTypeColorMap.get("IC"),
-        data: [],
-      },
-      {
-        label: "EV",
-        backgroundColor: busTypeColorMap.get("EV"),
-        data: [],
-      },
-      {
-        label: "Hydrogen",
-        backgroundColor: busTypeColorMap.get("Hydrogen"),
-        data: [],
-      },
-    ],
-  };
 };
 
-const populateEmissionsChartData = () => {
-  return {
-    labels: cloneDeep(emissionsLabels.value),
-    datasets: [
-      {
-        label: "IC",
-        backgroundColor: busTypeColorMap.get("IC"),
-        data: emissionsICData.value.slice(),
-      },
-      {
-        label: "EV",
-        backgroundColor: busTypeColorMap.get("EV"),
-        data: emissionsEVData.value.slice(),
-      },
-      {
-        label: "Hydrogen",
-        backgroundColor: busTypeColorMap.get("Hydrogen"),
-        data: emissionsHydrogenData.value.slice(),
-      },
-    ],
-  };
-};
+// Costs
+
+const seriesCost = ref<{ name: string; data: number[][] }[]>([
+  {
+    name: "IC",
+    data: [],
+  },
+  {
+    name: "EV",
+    data: [],
+  },
+  {
+    name: "Hydrogen",
+    data: [],
+  },
+  // Add more series as needed
+]);
+
+const isCostChartDataEmpty = computed(() => {
+  return seriesCost.value.every((elem) => elem.data.length === 0);
+});
 
 const totalCostIC = ref(0);
 const totalCostEV = ref(0);
@@ -181,50 +113,8 @@ const totalCostHydrogen = ref(0);
 const costsICData = ref<number[]>([]);
 const costsEVData = ref<number[]>([]);
 const costsHydrogenData = ref<number[]>([]);
-const costsLabels = ref<ChartLabel[]>([]);
-const costsChartData = ref<ChartData<"line">>({
-  labels: [],
-  datasets: [
-    {
-      label: "IC",
-      backgroundColor: busTypeColorMap.get("IC"),
-      data: [],
-    },
-    {
-      label: "EV",
-      backgroundColor: busTypeColorMap.get("EV"),
-      data: [],
-    },
-    {
-      label: "Hydrogen",
-      backgroundColor: busTypeColorMap.get("Hydrogen"),
-      data: [],
-    },
-  ],
-});
 
-const populateCostsChartData = () => {
-  return {
-    labels: cloneDeep(costsLabels.value),
-    datasets: [
-      {
-        label: "IC",
-        backgroundColor: busTypeColorMap.get("IC"),
-        data: cloneDeep(costsICData.value),
-      },
-      {
-        label: "EV",
-        backgroundColor: busTypeColorMap.get("EV"),
-        data: cloneDeep(costsEVData.value),
-      },
-      {
-        label: "Hydrogen",
-        backgroundColor: busTypeColorMap.get("Hydrogen"),
-        data: cloneDeep(costsHydrogenData.value),
-      },
-    ],
-  };
-};
+const chartOptionsCost = ref(chartConfig.apexChartOptions);
 
 const emptyCostsChartData = () => {
   totalCostIC.value = 0;
@@ -233,26 +123,6 @@ const emptyCostsChartData = () => {
   costsICData.value = [];
   costsEVData.value = [];
   costsHydrogenData.value = [];
-  costsChartData.value = {
-    labels: [],
-    datasets: [
-      {
-        label: "IC",
-        backgroundColor: busTypeColorMap.get("IC"),
-        data: [],
-      },
-      {
-        label: "EV",
-        backgroundColor: busTypeColorMap.get("EV"),
-        data: [],
-      },
-      {
-        label: "Hydrogen",
-        backgroundColor: busTypeColorMap.get("Hydrogen"),
-        data: [],
-      },
-    ],
-  };
 };
 
 // Chart related
@@ -355,14 +225,8 @@ const startSimulation = () => {
 
   chartUpdateIntervalId.value.push(
     setInterval(() => {
-      emissionsChartData.value = populateEmissionsChartData();
-    }, 1000)
-  );
-
-  chartUpdateIntervalId.value.push(
-    setInterval(() => {
-      costsChartData.value = populateCostsChartData();
-    }, 1000)
+      updateCharts();
+    }, 2000)
   );
 
   simulate();
@@ -370,18 +234,11 @@ const startSimulation = () => {
 
 const stopSimulation = () => {
   isSimRunning.value = false;
-  simTimer.value = 0;
   clearAnimationFrames();
   clearIntervalIds();
 };
 
-const updateCharts = async (
-  timestamp: number,
-  emissions: number,
-  costs: number,
-  type: BusType,
-  typeIdx: number
-) => {
+const populateChartData = (emissions: number, costs: number, type: BusType) => {
   const getDataByBusType = (
     type: BusType,
     data: "emission" | "cost" = "emission"
@@ -396,37 +253,100 @@ const updateCharts = async (
     }
   };
 
-  series.value[busTypeIdMap.get(type)!].data.push([
-    timestamp,
-    Number(emissions.toFixed(2)),
-  ]);
-  // Remove data points that are outside the x-axis range
+  const emissionsData = getDataByBusType(type);
+  if (emissionsData.value.length >= 100) {
+    emissionsData.value.shift();
+    emissionsData.value.push(Number(emissions.toFixed(2)));
+  } else {
+    emissionsData.value.push(Number(emissions.toFixed(2)));
+  }
+
+  const costsData = getDataByBusType(type, "cost");
+  if (costsData.value.length >= 100) {
+    costsData.value.shift();
+    costsData.value.push(Number(costs.toFixed(2)));
+  } else {
+    costsData.value.push(Number(costs.toFixed(2)));
+  }
+};
+
+// TODO: update charts in every `x` seconds and using the last `y` elements of the array??
+const updateCharts = async () => {
+  // Will be used to remove data points that are outside the x-axis range
   const currentTime = new Date().getTime();
-  series.value.forEach((s) => {
+
+  // Emissions
+  seriesEmission.value[0].data.push([
+    new Date().getTime(),
+    calculateAvg(emissionsICData.value),
+  ]);
+  seriesEmission.value[1].data.push([
+    new Date().getTime(),
+    calculateAvg(emissionsEVData.value),
+  ]);
+  seriesEmission.value[2].data.push([
+    new Date().getTime(),
+    calculateAvg(emissionsHydrogenData.value),
+  ]);
+
+  seriesEmission.value.forEach((s) => {
     s.data = s.data.filter(
       (dataPoint) => dataPoint[0] >= currentTime - 5 * 1000
     );
   });
 
   // Dynamically update y-axis max based on the highest value in the series
-  const allDataPoints = series.value.flatMap((s) => s.data);
-  const maxYValue = Math.max(...allDataPoints.map((dataPoint) => dataPoint[1]));
+  const allDataPointsEmission = seriesEmission.value.flatMap((s) => s.data);
+  const maxYValueEmission = Math.max(
+    ...allDataPointsEmission.map((dataPoint) => dataPoint[1])
+  );
 
-  chartOptions.value = {
-    ...chartOptions.value,
+  chartOptionsEmission.value = {
+    ...chartOptionsEmission.value,
     yaxis: {
-      ...chartOptions.value.yaxis,
-      max: maxYValue + 10, // Add some padding to the max value
+      ...chartOptionsEmission.value.yaxis,
+      max: maxYValueEmission + 10, // Add some padding to the max value
     },
   };
 
-  // const emissionsData = getDataByBusType(type);
-  // emissionsLabels.value.push(timestamp);
-  // emissionsData.value.push(emissions);
+  // Emissions
 
-  // const costsData = getDataByBusType(type, "cost");
-  // costsLabels.value.push(timestamp);
-  // costsData.value.push(costs);
+  // Costs
+  seriesCost.value[0].data.push([
+    new Date().getTime(),
+    calculateAvg(costsICData.value),
+  ]);
+
+  seriesCost.value[1].data.push([
+    new Date().getTime(),
+    calculateAvg(costsEVData.value),
+  ]);
+
+  seriesCost.value[2].data.push([
+    new Date().getTime(),
+    calculateAvg(costsHydrogenData.value),
+  ]);
+
+  seriesCost.value.forEach((s) => {
+    s.data = s.data.filter(
+      (dataPoint) => dataPoint[0] >= currentTime - 5 * 1000
+    );
+  });
+
+  // Dynamically update y-axis max based on the highest value in the series
+  const allDataPointsCost = seriesCost.value.flatMap((s) => s.data);
+  const maxYValueCost = Math.max(
+    ...allDataPointsCost.map((dataPoint) => dataPoint[1])
+  );
+
+  chartOptionsCost.value = {
+    ...chartOptionsCost.value,
+    yaxis: {
+      ...chartOptionsCost.value.yaxis,
+      max: maxYValueCost + 10, // Add some padding to the max value
+    },
+  };
+  // Costs
 };
 
 const simulate = () => {
@@ -511,13 +431,7 @@ const simulate = () => {
         totalCost.value =
           totalCost.value + getCost(types[idx], distanceCovered);
 
-        // updateCharts(
-        //   new Date().getTime(),
-        //   totalEmission.value,
-        //   totalCost.value,
-        //   types[idx],
-        //   idx
-        // );
+        populateChartData(totalEmission.value, totalCost.value, types[idx]);
       });
 
       if (
@@ -577,8 +491,6 @@ const simulate = () => {
 
 onMounted(() => {
   createMap();
-
-  setInterval(() => {});
 });
 
 // Cleanup
@@ -593,20 +505,17 @@ onUnmounted(() => {
 
 <template>
   <div id="map"></div>
-  <div class="bg-white" id="charts">
-    <!-- <Line
-      key="emissionsChart"
-      :data="emissionsChartData"
-      :options="chartConfig.options"
-    /> -->
-    <!-- <Line
-      key="costsChart"
-      :data="costsChartData"
-      :options="chartConfig.options"
-    /> -->
-    <apexchart type="line" :options="chartOptions" :series="series"></apexchart>
-
-    <!-- <RealTimeChart /> -->
+  <div
+    v-if="!(isEmissionChartDataEmpty || isCostChartDataEmpty)"
+    class="bg-white"
+    id="charts"
+  >
+    <apexchart
+      type="line"
+      :options="chartOptionsEmission"
+      :series="seriesEmission"
+    />
+    <apexchart type="line" :options="chartOptionsCost" :series="seriesCost" />
   </div>
   <div class="absolute top-0 right-0 z-[1001] mt-2 mr-2">
     <Card class="flex flex-col gap-y-4">
