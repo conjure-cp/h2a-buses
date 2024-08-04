@@ -66,7 +66,6 @@ export const useMapStore = defineStore("map", () => {
       }
     });
 
-    // TODO: Solve this duplicate layer problem!
     demoMap.value?.addLayer(waypointMarkers);
     demoMap.value?.removeLayer(waypointMarkers);
   };

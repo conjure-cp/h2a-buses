@@ -40,12 +40,6 @@ const isSimRunning = ref(false);
 const animationFrameId = ref<number[]>([]);
 const chartUpdateIntervalId = ref<number[]>([]);
 
-const busTypeIdMap: Map<BusType, number> = new Map([
-  ["IC", 0],
-  ["EV", 1],
-  ["Hydrogen", 2],
-]);
-
 const totalEmissionIC = ref(0);
 const totalEmissionEV = ref(0);
 const totalEmissionHydrogen = ref(0);
@@ -75,6 +69,14 @@ const isEmissionChartDataEmpty = computed(() => {
 });
 
 const chartOptionsEmission = ref(chartConfig.apexChartOptions);
+chartOptionsEmission.value = {
+  ...chartOptionsEmission.value,
+  id: "realtime-emissions-chart",
+  title: {
+    text: "Emission",
+    align: "center",
+  },
+};
 
 const emptyEmissionsChartData = () => {
   totalEmissionIC.value = 0;
@@ -115,6 +117,14 @@ const costsEVData = ref<number[]>([]);
 const costsHydrogenData = ref<number[]>([]);
 
 const chartOptionsCost = ref(chartConfig.apexChartOptions);
+chartOptionsCost.value = {
+  ...chartOptionsCost.value,
+  id: "realtime-costs-chart",
+  title: {
+    text: "Cost",
+    align: "center",
+  },
+};
 
 const emptyCostsChartData = () => {
   totalCostIC.value = 0;
@@ -270,7 +280,6 @@ const populateChartData = (emissions: number, costs: number, type: BusType) => {
   }
 };
 
-// TODO: update charts in every `x` seconds and using the last `y` elements of the array??
 const updateCharts = async () => {
   // Will be used to remove data points that are outside the x-axis range
   const currentTime = new Date().getTime();
@@ -305,6 +314,9 @@ const updateCharts = async () => {
     ...chartOptionsEmission.value,
     yaxis: {
       ...chartOptionsEmission.value.yaxis,
+      title: {
+        text: "Emission (g/mile)",
+      },
       max: maxYValueEmission + 10, // Add some padding to the max value
     },
   };
@@ -343,6 +355,10 @@ const updateCharts = async () => {
     ...chartOptionsCost.value,
     yaxis: {
       ...chartOptionsCost.value.yaxis,
+      title: {
+        // TODO: Confirm this unit?
+        text: "Cost (£/mile)",
+      },
       max: maxYValueCost + 10, // Add some padding to the max value
     },
   };
@@ -352,11 +368,11 @@ const updateCharts = async () => {
 const simulate = () => {
   const animateBuses = (
     markers: L.Marker[],
-    speed: number, // Single speed for all buses
+    speed: number, // Speed for all buses in miles/s
     coordArr: L.LatLng[],
     direction: ("forward" | "backward")[],
     types: BusType[],
-    startDistance: number // Distance at which the next bus starts
+    startDistance: number // Start distance in miles
   ) => {
     const numCoords = coordArr.length;
     let startTime: DOMHighResTimeStamp;
@@ -367,12 +383,13 @@ const simulate = () => {
       L.latLng(coord.lat, coord.lng)
     );
 
+    // Reverse the array of coordinates
     // TODO: TINY bug. Try to find a way to fix it
     const latLngArrReversed = latLngArr.slice().reverse();
 
-    // Calculate total distance of the route
+    // Calculate total distance of the route in miles
     for (let i = 0; i < numCoords - 1; i++) {
-      totalDistance += latLngArr[i].distanceTo(latLngArr[i + 1]);
+      totalDistance += latLngArr[i].distanceTo(latLngArr[i + 1]) * 0.000621371; // Convert meters to miles
     }
 
     // Calculate the time delay for each bus based on the startDistance and speed
@@ -388,13 +405,13 @@ const simulate = () => {
         if (elapsed < timeDelays[idx]) return; // Skip if it's not yet time for this bus to start
 
         const busElapsed = elapsed - timeDelays[idx]; // Adjust elapsed time for this bus
-        const distanceCovered = speed * busElapsed;
+        const distanceCovered = speed * busElapsed; // Distance covered in miles
         const dir = direction[idx];
         const arr = dir === "forward" ? latLngArr : latLngArrReversed;
         let distanceTraveled = 0;
 
         for (let i = 0; i < numCoords - 1; i++) {
-          const segmentDistance = arr[i].distanceTo(arr[i + 1]);
+          const segmentDistance = arr[i].distanceTo(arr[i + 1]) * 0.000621371; // Convert meters to miles
           if (distanceTraveled + segmentDistance >= distanceCovered) {
             const factor =
               (distanceCovered - distanceTraveled) / segmentDistance;
@@ -424,12 +441,12 @@ const simulate = () => {
           }
         };
         const totalEmission = getDataByBusType(types[idx]);
-        totalEmission.value =
-          totalEmission.value + getEmission(types[idx], distanceCovered);
+        totalEmission.value +=
+          getEmission(types[idx], distanceCovered * 1609.34) / 1609.34; // Scale emission by miles
 
         const totalCost = getDataByBusType(types[idx], "cost");
-        totalCost.value =
-          totalCost.value + getCost(types[idx], distanceCovered);
+        totalCost.value +=
+          getCost(types[idx], distanceCovered * 1609.34) / 1609.34; // Scale cost by miles
 
         populateChartData(totalEmission.value, totalCost.value, types[idx]);
       });
@@ -460,7 +477,7 @@ const simulate = () => {
     const busMarkers: L.Marker[] = [];
     const movingDirection: ("forward" | "backward")[] = [];
     const busTypes: BusType[] = [];
-    const speed = 200; // Single speed for all buses
+    const speed = 0.124274; // Speed for all buses in miles/s (200 km/h)
     const coordArr = lane.routeData.coordinates;
     // @ts-ignore
     const markers: L.Marker[] = [
@@ -472,15 +489,22 @@ const simulate = () => {
     const startCoord = coordArr[0];
     markers.forEach((marker, idx) => {
       marker.setLatLng([
-        startCoord.lat + idx / 5000,
-        startCoord.lng + idx / 5000,
+        startCoord.lat + idx / 80467, // Adjusting starting position slightly in miles
+        startCoord.lng + idx / 80467,
       ]);
       busMarkers.push(marker);
       movingDirection.push("forward");
       busTypes.push(marker.options.title! as BusType);
     });
 
-    animateBuses(busMarkers, speed, coordArr, movingDirection, busTypes, 1000); // 1000 meters as the start distance for the next bus
+    animateBuses(
+      busMarkers,
+      speed,
+      coordArr,
+      movingDirection,
+      busTypes,
+      0.621371
+    ); // 1 km as the start distance for the next bus, converted to miles
   });
 };
 

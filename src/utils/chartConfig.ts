@@ -6,7 +6,6 @@ export const options = {
 // TODO: Add title to the charts and labels to both x and y axis
 export const apexChartOptions: any = {
   chart: {
-    id: "realtime",
     animations: {
       enabled: true,
       easing: "linear",
@@ -20,7 +19,7 @@ export const apexChartOptions: any = {
     zoom: {
       enabled: false,
     },
-    height: '250px'
+    height: "250px",
   },
   dataLabels: {
     enabled: false,
