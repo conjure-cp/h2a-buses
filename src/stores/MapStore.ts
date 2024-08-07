@@ -1,7 +1,6 @@
 import { ref } from "vue";
 import L, { Marker } from "leaflet";
 import { defineStore } from "pinia";
-import { busIconColors } from "@/utils/helper";
 import type { BusLane } from "@/routing/control";
 import type { BusMarkerType } from "@/utils/types";
 
@@ -36,6 +35,16 @@ export const useMapStore = defineStore("map", () => {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(demoMap.value);
+
+    demoMap.value.on('zoomend', () => {
+      const zoomLevel = demoMap.value?.getZoom();
+      // Adjust marker size based on `zoom level`
+      document.querySelectorAll('[class*="fa-bus"]').forEach((marker: any) => {
+        let { fontSize } = marker.style;
+        fontSize =  Number((fontSize as string).slice(0, (fontSize as string).indexOf('r')))
+        marker.style.fontSize = `${zoomLevel ?? 13}px`
+      });
+    })
   };
 
   const removeLayers = () => {
@@ -57,7 +66,6 @@ export const useMapStore = defineStore("map", () => {
       }
     });
 
-    // TODO: Solve this duplicate layer problem!
     demoMap.value?.addLayer(waypointMarkers);
     demoMap.value?.removeLayer(waypointMarkers);
   };

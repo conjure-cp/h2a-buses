@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import Card from "@/components/Card.vue";
 import InputNumber, {
   type InputNumberInterface,
 } from "@/components/InputNumber.vue";
 import MultiSelect from "primevue/multiselect";
-import { BusLane, generateRoutingControl } from "@/routing/control";
+import { BusLane } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
-import type { BusLine, RouteOptions } from "@/utils/types";
+import { getEmission, getCost, calculateAvg } from "@/utils/helper";
+import type { BusLine, BusType, RouteOptions } from "@/utils/types";
+import * as chartConfig from "@/utils/chartConfig";
 import L from "leaflet";
 import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
@@ -35,7 +37,105 @@ const routeOptions = ref<
 >([]);
 const selectedRoutes = ref<RouteOptions[]>([]);
 const isSimRunning = ref(false);
-const timerIDArr: number[] = [];
+const animationFrameId = ref<number[]>([]);
+const chartUpdateIntervalId = ref<number[]>([]);
+
+const totalEmissionIC = ref(0);
+const totalEmissionEV = ref(0);
+const totalEmissionHydrogen = ref(0);
+const emissionsICData = ref<number[]>([]);
+const emissionsEVData = ref<number[]>([]);
+const emissionsHydrogenData = ref<number[]>([]);
+
+// Initialize series data
+const seriesEmission = ref<{ name: string; data: number[][] }[]>([
+  {
+    name: "IC",
+    data: [],
+  },
+  {
+    name: "EV",
+    data: [],
+  },
+  {
+    name: "Hydrogen",
+    data: [],
+  },
+  // Add more series as needed
+]);
+
+const isEmissionChartDataEmpty = computed(() => {
+  return seriesEmission.value.every((elem) => elem.data.length === 0);
+});
+
+const chartOptionsEmission = ref(chartConfig.apexChartOptions);
+chartOptionsEmission.value = {
+  ...chartOptionsEmission.value,
+  id: "realtime-emissions-chart",
+  title: {
+    text: "Emission",
+    align: "center",
+  },
+};
+
+const emptyEmissionsChartData = () => {
+  totalEmissionIC.value = 0;
+  totalEmissionEV.value = 0;
+  totalEmissionHydrogen.value = 0;
+  emissionsICData.value = [];
+  emissionsEVData.value = [];
+  emissionsHydrogenData.value = [];
+};
+
+// Costs
+
+const seriesCost = ref<{ name: string; data: number[][] }[]>([
+  {
+    name: "IC",
+    data: [],
+  },
+  {
+    name: "EV",
+    data: [],
+  },
+  {
+    name: "Hydrogen",
+    data: [],
+  },
+  // Add more series as needed
+]);
+
+const isCostChartDataEmpty = computed(() => {
+  return seriesCost.value.every((elem) => elem.data.length === 0);
+});
+
+const totalCostIC = ref(0);
+const totalCostEV = ref(0);
+const totalCostHydrogen = ref(0);
+const costsICData = ref<number[]>([]);
+const costsEVData = ref<number[]>([]);
+const costsHydrogenData = ref<number[]>([]);
+
+const chartOptionsCost = ref(chartConfig.apexChartOptions);
+chartOptionsCost.value = {
+  ...chartOptionsCost.value,
+  id: "realtime-costs-chart",
+  title: {
+    text: "Cost",
+    align: "center",
+  },
+};
+
+const emptyCostsChartData = () => {
+  totalCostIC.value = 0;
+  totalCostEV.value = 0;
+  totalCostHydrogen.value = 0;
+  costsICData.value = [];
+  costsEVData.value = [];
+  costsHydrogenData.value = [];
+};
+
+// Chart related
 
 fetch("json/available_lines.json")
   .then((resp) => resp.json())
@@ -115,97 +215,297 @@ const findRoutes = () => {
   }
 };
 
-const simulate = () => {
-  let numSelectedLanes = busLanes.value.length;
-  busLanes.value.forEach((lane, i: number) => {
-    const coordArr = (lane as BusLane).routeData.coordinates;
-    const ICBuses = (lane as BusLane).markers.get("IC");
-    const EVBuses = (lane as BusLane).markers.get("EV");
-    const hydrogenBuses = (lane as BusLane).markers.get("Hydrogen");
-    const coordArrLen = coordArr.length;
-    coordArr.forEach((coord: L.LatLng, j: number) => {
-      timerIDArr.push(
-        setTimeout(() => {
-          ICBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 100 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          EVBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 125 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          hydrogenBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
-            simulateReverse();
-          }
-        }, 150 * j)
-      );
-    });
-  });
-};
-
-const simulateReverse = () => {
-  const numSelectedLanes = busLanes.value.length;
-  busLanes.value.forEach((lane, i: number) => {
-    const coordArr = (lane as BusLane).coordinatesReverse;
-    const ICBuses = (lane as BusLane).markers.get("IC");
-    const EVBuses = (lane as BusLane).markers.get("EV");
-    const hydrogenBuses = (lane as BusLane).markers.get("Hydrogen");
-    const coordArrLen = coordArr.length;
-    coordArr.forEach((coord: L.LatLng, j: number) => {
-      timerIDArr.push(
-        setTimeout(() => {
-          ICBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 100 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          EVBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-        }, 125 * j)
-      );
-
-      timerIDArr.push(
-        setTimeout(() => {
-          hydrogenBuses?.forEach((bus: L.Marker, idx: number) => {
-            bus.setLatLng([coord.lat + idx / 1000, coord.lng + idx / 1000]);
-          });
-          if (i === numSelectedLanes - 1 && j === coordArrLen - 1) {
-            simulate();
-          }
-        }, 150 * j)
-      );
-    });
-  });
-};
-const stopSimulation = () => {
-  ((
-    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
-      .root as InputNumberPassThroughAttributes
-  ).class as string) = (
-    (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
-      .root as InputNumberPassThroughAttributes
-  ).class.replace(" pointer-events-none", "");
-
-  isSimRunning.value = false;
-
-  while (timerIDArr.length) {
-    clearTimeout(timerIDArr.pop());
+const clearAnimationFrames = () => {
+  while (animationFrameId.value.length) {
+    cancelAnimationFrame(animationFrameId.value.pop()!);
   }
+};
+
+const clearIntervalIds = () => {
+  while (chartUpdateIntervalId.value.length) {
+    clearInterval(chartUpdateIntervalId.value.pop()!);
+  }
+};
+
+const startSimulation = () => {
+  if (isSimRunning.value) return;
+  isSimRunning.value = true;
+  emptyEmissionsChartData();
+  emptyCostsChartData();
+
+  chartUpdateIntervalId.value.push(
+    setInterval(() => {
+      updateCharts();
+    }, 2000)
+  );
+
+  simulate();
+};
+
+const stopSimulation = () => {
+  isSimRunning.value = false;
+  clearAnimationFrames();
+  clearIntervalIds();
+};
+
+const populateChartData = (emissions: number, costs: number, type: BusType) => {
+  const getDataByBusType = (
+    type: BusType,
+    data: "emission" | "cost" = "emission"
+  ) => {
+    switch (type) {
+      case "IC":
+        return data === "emission" ? emissionsICData : costsICData;
+      case "EV":
+        return data === "emission" ? emissionsEVData : costsEVData;
+      case "Hydrogen":
+        return data === "emission" ? emissionsHydrogenData : costsHydrogenData;
+    }
+  };
+
+  const emissionsData = getDataByBusType(type);
+  if (emissionsData.value.length >= 100) {
+    emissionsData.value.shift();
+    emissionsData.value.push(Number(emissions.toFixed(2)));
+  } else {
+    emissionsData.value.push(Number(emissions.toFixed(2)));
+  }
+
+  const costsData = getDataByBusType(type, "cost");
+  if (costsData.value.length >= 100) {
+    costsData.value.shift();
+    costsData.value.push(Number(costs.toFixed(2)));
+  } else {
+    costsData.value.push(Number(costs.toFixed(2)));
+  }
+};
+
+const updateCharts = async () => {
+  // Will be used to remove data points that are outside the x-axis range
+  const currentTime = new Date().getTime();
+
+  // Emissions
+  seriesEmission.value[0].data.push([
+    new Date().getTime(),
+    calculateAvg(emissionsICData.value),
+  ]);
+  seriesEmission.value[1].data.push([
+    new Date().getTime(),
+    calculateAvg(emissionsEVData.value),
+  ]);
+  seriesEmission.value[2].data.push([
+    new Date().getTime(),
+    calculateAvg(emissionsHydrogenData.value),
+  ]);
+
+  seriesEmission.value.forEach((s) => {
+    s.data = s.data.filter(
+      (dataPoint) => dataPoint[0] >= currentTime - 5 * 1000
+    );
+  });
+
+  // Dynamically update y-axis max based on the highest value in the series
+  const allDataPointsEmission = seriesEmission.value.flatMap((s) => s.data);
+  const maxYValueEmission = Math.max(
+    ...allDataPointsEmission.map((dataPoint) => dataPoint[1])
+  );
+
+  chartOptionsEmission.value = {
+    ...chartOptionsEmission.value,
+    yaxis: {
+      ...chartOptionsEmission.value.yaxis,
+      title: {
+        text: "Emission (g/mile)",
+      },
+      max: maxYValueEmission + 10, // Add some padding to the max value
+    },
+  };
+
+  // Emissions
+
+  // Costs
+  seriesCost.value[0].data.push([
+    new Date().getTime(),
+    calculateAvg(costsICData.value),
+  ]);
+
+  seriesCost.value[1].data.push([
+    new Date().getTime(),
+    calculateAvg(costsEVData.value),
+  ]);
+
+  seriesCost.value[2].data.push([
+    new Date().getTime(),
+    calculateAvg(costsHydrogenData.value),
+  ]);
+
+  seriesCost.value.forEach((s) => {
+    s.data = s.data.filter(
+      (dataPoint) => dataPoint[0] >= currentTime - 5 * 1000
+    );
+  });
+
+  // Dynamically update y-axis max based on the highest value in the series
+  const allDataPointsCost = seriesCost.value.flatMap((s) => s.data);
+  const maxYValueCost = Math.max(
+    ...allDataPointsCost.map((dataPoint) => dataPoint[1])
+  );
+
+  chartOptionsCost.value = {
+    ...chartOptionsCost.value,
+    yaxis: {
+      ...chartOptionsCost.value.yaxis,
+      title: {
+        // TODO: Confirm this unit?
+        text: "Cost (£/mile)",
+      },
+      max: maxYValueCost + 10, // Add some padding to the max value
+    },
+  };
+  // Costs
+};
+
+const simulate = () => {
+  const animateBuses = (
+    markers: L.Marker[],
+    speed: number, // Speed for all buses in miles/s
+    coordArr: L.LatLng[],
+    direction: ("forward" | "backward")[],
+    types: BusType[],
+    startDistance: number // Start distance in miles
+  ) => {
+    const numCoords = coordArr.length;
+    let startTime: DOMHighResTimeStamp;
+    let totalDistance = 0;
+
+    // Convert coordArr to L.LatLng objects if not already
+    const latLngArr = coordArr.map((coord: L.LatLng) =>
+      L.latLng(coord.lat, coord.lng)
+    );
+
+    // Reverse the array of coordinates
+    // TODO: TINY bug. Try to find a way to fix it
+    const latLngArrReversed = latLngArr.slice().reverse();
+
+    // Calculate total distance of the route in miles
+    for (let i = 0; i < numCoords - 1; i++) {
+      totalDistance += latLngArr[i].distanceTo(latLngArr[i + 1]) * 0.000621371; // Convert meters to miles
+    }
+
+    // Calculate the time delay for each bus based on the startDistance and speed
+    const timeDelays = markers.map((_, idx) =>
+      idx > 0 ? (startDistance * idx) / speed : 0
+    );
+
+    const animate = (timestamp: DOMHighResTimeStamp) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = (timestamp - startTime) / 1000; // Convert to seconds
+
+      markers.forEach((bus, idx) => {
+        if (elapsed < timeDelays[idx]) return; // Skip if it's not yet time for this bus to start
+
+        const busElapsed = elapsed - timeDelays[idx]; // Adjust elapsed time for this bus
+        const distanceCovered = speed * busElapsed; // Distance covered in miles
+        const dir = direction[idx];
+        const arr = dir === "forward" ? latLngArr : latLngArrReversed;
+        let distanceTraveled = 0;
+
+        for (let i = 0; i < numCoords - 1; i++) {
+          const segmentDistance = arr[i].distanceTo(arr[i + 1]) * 0.000621371; // Convert meters to miles
+          if (distanceTraveled + segmentDistance >= distanceCovered) {
+            const factor =
+              (distanceCovered - distanceTraveled) / segmentDistance;
+            const lat = arr[i].lat + (arr[i + 1].lat - arr[i].lat) * factor;
+            const lng = arr[i].lng + (arr[i + 1].lng - arr[i].lng) * factor;
+
+            bus.setLatLng([lat, lng]);
+            break;
+          }
+          distanceTraveled += segmentDistance;
+        }
+
+        // Calculate emissions and costs based on distance covered
+        const getDataByBusType = (
+          type: BusType,
+          data: "emission" | "cost" = "emission"
+        ) => {
+          switch (type) {
+            case "IC":
+              return data === "emission" ? totalEmissionIC : totalCostIC;
+            case "EV":
+              return data === "emission" ? totalEmissionEV : totalCostEV;
+            case "Hydrogen":
+              return data === "emission"
+                ? totalEmissionHydrogen
+                : totalCostHydrogen;
+          }
+        };
+        const totalEmission = getDataByBusType(types[idx]);
+        totalEmission.value +=
+          getEmission(types[idx], distanceCovered * 1609.34) / 1609.34; // Scale emission by miles
+
+        const totalCost = getDataByBusType(types[idx], "cost");
+        totalCost.value +=
+          getCost(types[idx], distanceCovered * 1609.34) / 1609.34; // Scale cost by miles
+
+        populateChartData(totalEmission.value, totalCost.value, types[idx]);
+      });
+
+      if (
+        markers.some(
+          (bus, idx) => speed * (elapsed - timeDelays[idx]) < totalDistance
+        )
+      ) {
+        animationFrameId.value.push(requestAnimationFrame(animate)); // Continue animation
+      } else {
+        // Restart animation loop for continuous movement
+        startTime = timestamp;
+        // Move buses back and forth
+        markers.forEach((bus, idx) => {
+          direction[idx] =
+            direction[idx] === "forward" ? "backward" : "forward";
+        });
+        animationFrameId.value.push(requestAnimationFrame(animate));
+      }
+    };
+
+    animationFrameId.value.push(requestAnimationFrame(animate));
+  };
+
+  // Collect all bus markers and assign a single speed
+  busLanes.value.forEach((lane) => {
+    const busMarkers: L.Marker[] = [];
+    const movingDirection: ("forward" | "backward")[] = [];
+    const busTypes: BusType[] = [];
+    const speed = 0.124274; // Speed for all buses in miles/s (200 km/h)
+    const coordArr = lane.routeData.coordinates;
+    // @ts-ignore
+    const markers: L.Marker[] = [
+      ...(lane.markers.get("IC") || ([] as L.Marker[])),
+      ...(lane.markers.get("EV") || ([] as L.Marker[])),
+      ...(lane.markers.get("Hydrogen") || ([] as L.Marker[])),
+    ];
+
+    const startCoord = coordArr[0];
+    markers.forEach((marker, idx) => {
+      marker.setLatLng([
+        startCoord.lat + idx / 80467, // Adjusting starting position slightly in miles
+        startCoord.lng + idx / 80467,
+      ]);
+      busMarkers.push(marker);
+      movingDirection.push("forward");
+      busTypes.push(marker.options.title! as BusType);
+    });
+
+    animateBuses(
+      busMarkers,
+      speed,
+      coordArr,
+      movingDirection,
+      busTypes,
+      0.621371
+    ); // 1 km as the start distance for the next bus, converted to miles
+  });
 };
 
 // Used to download JSONs containing route data
@@ -216,10 +516,31 @@ const stopSimulation = () => {
 onMounted(() => {
   createMap();
 });
+
+// Cleanup
+onUnmounted(() => {
+  stopSimulation();
+  if (demoMap.value) {
+    demoMap.value.remove();
+  }
+  clearIntervalIds();
+});
 </script>
 
 <template>
   <div id="map"></div>
+  <div
+    v-if="!(isEmissionChartDataEmpty || isCostChartDataEmpty)"
+    class="bg-white"
+    id="charts"
+  >
+    <apexchart
+      type="line"
+      :options="chartOptionsEmission"
+      :series="seriesEmission"
+    />
+    <apexchart type="line" :options="chartOptionsCost" :series="seriesCost" />
+  </div>
   <div class="absolute top-0 right-0 z-[1001] mt-2 mr-2">
     <Card class="flex flex-col gap-y-4">
       <!-- TODO: Improve Chip display?? -->
@@ -283,7 +604,9 @@ onMounted(() => {
           />
         </div>
         <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-blue-500 text-center font-bold">Hydrogen</div>
+          <div class="text-sm text-blue-500 text-center font-bold">
+            Hydrogen
+          </div>
           <InputNumber
             :modelValue="lane.numHydrogenMarkers"
             :inputProps="inputNumberProps"
@@ -328,8 +651,7 @@ onMounted(() => {
                   (inputNumberProps.ptProps as InputNumberPassThroughOptions)
                     .root as InputNumberPassThroughAttributes
                 ).class + ' pointer-events-none';
-              isSimRunning = true;
-              simulate();
+              startSimulation();
             }
           "
         >
@@ -340,7 +662,18 @@ onMounted(() => {
           type="button"
           :disabled="!isSimRunning"
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
-          @click="stopSimulation"
+          @click="
+            () => {
+              ((
+                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                  .root as InputNumberPassThroughAttributes
+              ).class as string) = (
+                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
+                  .root as InputNumberPassThroughAttributes
+              ).class.replace(' pointer-events-none', '');
+              stopSimulation();
+            }
+          "
         >
           <i class="fa-solid fa-stop mr-2" />
           Stop

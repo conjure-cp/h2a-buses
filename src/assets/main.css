@@ -17,3 +17,15 @@
   position: relative;
   height: 100vh;
 }
+
+/* TODO: update the styling. These styles implemented just for testing purposes */
+#charts {
+  height: 600px;
+  width: 30%;
+  position: absolute;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  bottom: 0px;
+  right: 0px;
+}

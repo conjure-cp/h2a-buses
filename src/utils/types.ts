@@ -16,6 +16,8 @@ export type RouteOptions = {
 
 export type BusMarkerType = "IC" | "EV" | "Hydrogen"
 
+export type BusType = BusMarkerType; 
+
 export type BusLaneRoute = {
   coordinates: L.LatLng[];
   totalDistance: number; // distance for the route, in meters
