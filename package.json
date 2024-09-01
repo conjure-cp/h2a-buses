@@ -29,7 +29,7 @@
     "pinia": "^2.2.0",
     "primevue": "^3.49.1",
     "vue": "^3.4.35",
-    "vue-router": "^4.4.0"
+    "vue-router": "^4.4.3"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.10.4",
