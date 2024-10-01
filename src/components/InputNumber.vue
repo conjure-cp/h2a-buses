@@ -72,10 +72,16 @@ const inputModel = computed({
       :step="props.inputProps.step"
     >
       <template #incrementbuttonicon>
-        <span class="fa-solid fa-plus" @click="emit('increase')" />
+        <span
+          class="fa-solid fa-plus"
+          @click="emit('increase', props.inputProps.step)"
+        />
       </template>
       <template #decrementbuttonicon>
-        <span class="fa-solid fa-minus" @click="emit('decrease')" />
+        <span
+          class="fa-solid fa-minus"
+          @click="emit('decrease', props.inputProps.step)"
+        />
       </template>
     </InputNumber>
     <span

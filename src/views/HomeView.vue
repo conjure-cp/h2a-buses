@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import Card from "@/components/Card.vue";
 import InputNumber, {
   type InputNumberInterface,
@@ -7,7 +7,7 @@ import InputNumber, {
 import MultiSelect from "primevue/multiselect";
 import { BusLane } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
-import { getEmission, getCost, calculateAvg } from "@/utils/helper";
+import { getEmission, getCost, calculateAvg, sleep } from "@/utils/helper";
 import type { BusLine, BusType, RouteOptions } from "@/utils/types";
 import * as chartConfig from "@/utils/chartConfig";
 import L from "leaflet";
@@ -135,6 +135,18 @@ const emptyCostsChartData = () => {
   costsHydrogenData.value = [];
 };
 
+const costDataByBusType = ref<Record<string, number>>({
+  IC: 3,
+  EV: 2,
+  Hydrogen: 2.5,
+});
+
+const emissionDataByBusType = ref<Record<string, number>>({
+  IC: 2,
+  EV: 0.5,
+  Hydrogen: 1,
+});
+
 // Chart related
 
 fetch("json/available_lines.json")
@@ -228,6 +240,16 @@ const clearIntervalIds = () => {
 };
 
 const startSimulation = () => {
+  if (
+    !Object.values(costDataByBusType.value).every((val: number) => val !== 0) ||
+    !Object.values(emissionDataByBusType.value).every(
+      (val: number) => val !== 0
+    )
+  ) {
+    alert("Please specify cost AND emission factors (> 0)");
+    return;
+  }
+
   if (isSimRunning.value) return;
   isSimRunning.value = true;
   emptyEmissionsChartData();
@@ -442,11 +464,17 @@ const simulate = () => {
         };
         const totalEmission = getDataByBusType(types[idx]);
         totalEmission.value +=
-          getEmission(types[idx], distanceCovered * 1609.34) / 1609.34; // Scale emission by miles
+          getEmission(
+            emissionDataByBusType.value[types[idx]],
+            distanceCovered * 1609.34
+          ) / 1609.34; // Scale emission by miles
 
         const totalCost = getDataByBusType(types[idx], "cost");
         totalCost.value +=
-          getCost(types[idx], distanceCovered * 1609.34) / 1609.34; // Scale cost by miles
+          getCost(
+            costDataByBusType.value[types[idx]],
+            distanceCovered * 1609.34
+          ) / 1609.34; // Scale cost by miles
 
         populateChartData(totalEmission.value, totalCost.value, types[idx]);
       });
@@ -513,6 +541,31 @@ const simulate = () => {
 //   routeOptions.value.forEach((option) => generateRoutingControl(option.value));
 // };
 
+watch(
+  isSimRunning,
+  (running) => {
+    if (running) {
+      (
+        (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+          .root as InputNumberPassThroughAttributes
+      ).class =
+        (
+          (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+            .root as InputNumberPassThroughAttributes
+        ).class + " pointer-events-none";
+    } else {
+      ((
+        (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+          .root as InputNumberPassThroughAttributes
+      ).class as string) = (
+        (inputNumberProps.value.ptProps as InputNumberPassThroughOptions)
+          .root as InputNumberPassThroughAttributes
+      ).class.replace(" pointer-events-none", "");
+    }
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   createMap();
 });
@@ -557,6 +610,92 @@ onUnmounted(() => {
         :virtualScrollerOptions="{ itemSize: 25 }"
       />
       <!-- TODO: Refactor -->
+      <div class="flex flex-col gap-y-4 items-center border border-[#d4d4d8]">
+        <div class="ml-4 flex flex-row gap-x-2 justify-center">
+          <span class="self-center text-sm">{{ "Cost (£/mile)" }}</span>
+          <div
+            v-for="(data, idx) in Object.entries(costDataByBusType)"
+            :key="`cost-input-num-${idx}`"
+            class="flex flex-col gap-y-1"
+          >
+            <div
+              class="text-sm text-center font-bold"
+              :class="
+                data[0] === 'IC'
+                  ? 'text-red-500'
+                  : data[0] === 'EV'
+                    ? 'text-green-500'
+                    : data[0] === 'Hydrogen'
+                      ? 'text-blue-500'
+                      : ''
+              "
+            >
+              {{ data[0] }}
+            </div>
+
+            <InputNumber
+              :modelValue="costDataByBusType[data[0]]"
+              :inputProps="{ ...inputNumberProps, step: 0.5 }"
+              @increase="
+                (step: number) => {
+                  costDataByBusType[data[0]] += step;
+                }
+              "
+              @decrease="
+                (step: number) => {
+                  if (costDataByBusType[data[0]] > 0.0) {
+                    costDataByBusType[data[0]] = Number(
+                      (costDataByBusType[data[0]] - step).toFixed(1)
+                    );
+                  }
+                }
+              "
+            />
+          </div>
+        </div>
+        <div class="ml-4 flex flex-row gap-x-2 justify-center">
+          <span class="self-center text-sm">{{ "CO2 Emission (g/mile)" }}</span>
+          <div
+            v-for="(data, idx) in Object.entries(emissionDataByBusType)"
+            :key="`emission-input-num-${idx}`"
+            class="flex flex-col gap-y-1"
+          >
+            <div
+              class="text-sm text-center font-bold"
+              :class="
+                data[0] === 'IC'
+                  ? 'text-red-500'
+                  : data[0] === 'EV'
+                    ? 'text-green-500'
+                    : data[0] === 'Hydrogen'
+                      ? 'text-blue-500'
+                      : ''
+              "
+            >
+              {{ data[0] }}
+            </div>
+
+            <InputNumber
+              :modelValue="emissionDataByBusType[data[0]]"
+              :inputProps="{ ...inputNumberProps, step: 0.1 }"
+              @increase="
+                (step: number) => {
+                  emissionDataByBusType[data[0]] += step;
+                }
+              "
+              @decrease="
+                (step: number) => {
+                  if (emissionDataByBusType[data[0]] > 0) {
+                    emissionDataByBusType[data[0]] = Number(
+                      (emissionDataByBusType[data[0]] - step).toFixed(1)
+                    );
+                  }
+                }
+              "
+            />
+          </div>
+        </div>
+      </div>
       <div
         v-for="(lane, idx) in busLanes"
         class="flex flex-row gap-x-2 justify-center"
@@ -643,14 +782,6 @@ onUnmounted(() => {
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="
             () => {
-              (
-                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
-                  .root as InputNumberPassThroughAttributes
-              ).class =
-                (
-                  (inputNumberProps.ptProps as InputNumberPassThroughOptions)
-                    .root as InputNumberPassThroughAttributes
-                ).class + ' pointer-events-none';
               startSimulation();
             }
           "
@@ -664,13 +795,6 @@ onUnmounted(() => {
           class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="
             () => {
-              ((
-                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
-                  .root as InputNumberPassThroughAttributes
-              ).class as string) = (
-                (inputNumberProps.ptProps as InputNumberPassThroughOptions)
-                  .root as InputNumberPassThroughAttributes
-              ).class.replace(' pointer-events-none', '');
               stopSimulation();
             }
           "

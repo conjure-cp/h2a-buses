@@ -28,38 +28,13 @@ export const downloadJSON = (fileName: string, jsonString: string) => {
 };
 
 // Linear emission functions for different bus types
-export const getEmission = (type: BusType, distance: number) => {
-  switch (type) {
-    case "IC":
-      return 2 * distance;
-
-    case "EV":
-      return 0.5 * distance;
-
-    case "Hydrogen":
-      return 1 * distance;
-
-    default:
-      return 0;
-  }
+export const getEmission = (emissionPerMile: number, distance: number) => {
+  return emissionPerMile * distance;
 };
 
 // Linear cost functions for different bus types
-// TODO: double-check if the cost function should be parametrized by distance
-export const getCost = (type: BusType, distance: number) => {
-  switch (type) {
-    case "IC":
-      return 3 * distance;
-
-    case "EV":
-      return 2 * distance;
-
-    case "Hydrogen":
-      return 2.5 * distance;
-
-    default:
-      return 0;
-  }
+export const getCost = (costPerMile: number, distance: number) => {
+  return costPerMile * distance
 };
 
 export const calculateAvg = (arr: number[]) => {
