@@ -19,7 +19,7 @@
     "@types/lodash": "^4.17.7",
     "@vueuse/core": "^10.11.0",
     "apexcharts": "^3.50.0",
-    "chart.js": "^4.4.3",
+    "chart.js": "^4.4.4",
     "leaflet": "^1.9.4",
     "leaflet-routing-machine": "^3.2.12",
     "leaflet.animatedmarker": "^1.0.0",
