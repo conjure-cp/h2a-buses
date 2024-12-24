@@ -149,13 +149,13 @@ const emissionDataByBusType = ref<Record<string, number>>({
 
 // Chart related
 
-fetch("json/available_lines.json")
+fetch("json/east-scotland/available_lines.json")
   .then((resp) => resp.json())
   .then((data: any) => {
     // fetch all available lines
     data.lines.forEach((serviceCode: string) => {
       // then iterate through the service codes to fetch related info
-      fetch(`json/${serviceCode}.json`)
+      fetch(`json/east-scotland/${serviceCode}.json`)
         .then((resp) => resp.json())
         .then((data: BusLine) => {
           // Collect lat & lng info

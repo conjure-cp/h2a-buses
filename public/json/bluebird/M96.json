@@ -1,0 +1,20 @@
+{
+  "service_code": "M96",
+  "line_name": "M96",
+  "origin": "Inverness",
+  "destination": "Nairn",
+  "stops": [
+    [
+      57.480817,
+      -4.22517
+    ],
+    [
+      57.54493,
+      -4.00346
+    ],
+    [
+      57.58491,
+      -3.87181
+    ]
+  ]
+}
