@@ -6,17 +6,24 @@ export interface BusLine {
   stops: number[][]; // dim: n x 2
 }
 
-export type RouteOptions = {
+export type RouteRegions =
+  | "bluebird"
+  | "east-scotland"
+  | "highlands"
+  | "west-scotland";
+
+export type RouteOptionDetails = {
   line: string;
   origin: string;
   destination: string;
   serviceCode: string;
   waypoints: L.LatLng[];
-}
+  region: RouteRegions;
+};
 
-export type BusMarkerType = "IC" | "EV" | "Hydrogen"
+export type BusMarkerType = "IC" | "EV" | "Hydrogen";
 
-export type BusType = BusMarkerType; 
+export type BusType = BusMarkerType;
 
 export type BusLaneRoute = {
   coordinates: L.LatLng[];

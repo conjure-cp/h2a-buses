@@ -7,8 +7,13 @@ import InputNumber, {
 import MultiSelect from "primevue/multiselect";
 import { BusLane } from "@/routing/control";
 import { useMapStore } from "@/stores/MapStore";
-import { getEmission, getCost, calculateAvg, sleep } from "@/utils/helper";
-import type { BusLine, BusType, RouteOptions } from "@/utils/types";
+import { getEmission, getCost, calculateAvg, regions } from "@/utils/helper";
+import type {
+  BusLine,
+  BusType,
+  RouteOptionDetails,
+  RouteRegions,
+} from "@/utils/types";
 import * as chartConfig from "@/utils/chartConfig";
 import L from "leaflet";
 import "leaflet-routing-machine";
@@ -32,10 +37,13 @@ const {
 const routeOptions = ref<
   {
     label: string;
-    value: RouteOptions;
+    items: {
+      label: string;
+      value: RouteOptionDetails;
+    }[];
   }[]
 >([]);
-const selectedRoutes = ref<RouteOptions[]>([]);
+const selectedRoutes = ref<RouteOptionDetails[]>([]);
 const isSimRunning = ref(false);
 const animationFrameId = ref<number[]>([]);
 const chartUpdateIntervalId = ref<number[]>([]);
@@ -148,36 +156,48 @@ const emissionDataByBusType = ref<Record<string, number>>({
 });
 
 // Chart related
+for (const region of regions) {
+  fetch(`json/${region}/available_lines.json`)
+    .then((resp) => resp.json())
+    .then((data: any) => {
+      let regionLabel = region
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+      routeOptions.value.push({
+        label: regionLabel,
+        items: [],
+      });
+      // fetch all available lines
+      data.lines.forEach((serviceCode: string) => {
+        // then iterate through the service codes to fetch related info
+        fetch(`json/${region}/${serviceCode}.json`)
+          .then((resp) => resp.json())
+          .then((data: BusLine) => {
+            // Collect lat & lng info
+            const route: L.LatLng[] = [];
+            data.stops.forEach((elem) => {
+              route.push(L.latLng(elem[0], elem[1]));
+            });
 
-fetch("json/east-scotland/available_lines.json")
-  .then((resp) => resp.json())
-  .then((data: any) => {
-    // fetch all available lines
-    data.lines.forEach((serviceCode: string) => {
-      // then iterate through the service codes to fetch related info
-      fetch(`json/east-scotland/${serviceCode}.json`)
-        .then((resp) => resp.json())
-        .then((data: BusLine) => {
-          // Collect lat & lng info
-          const route: L.LatLng[] = [];
-          data.stops.forEach((elem) => {
-            route.push(L.latLng(elem[0], elem[1]));
+            // Collect other info - lineNumber, origin, destination
+            routeOptions.value
+              .find((g) => g.label === regionLabel)
+              ?.items.push({
+                label: `${data.line_name} ${data.origin} - ${data.destination}`,
+                value: {
+                  line: data.line_name,
+                  origin: data.origin,
+                  destination: data.destination,
+                  serviceCode: data.service_code,
+                  waypoints: route,
+                  region: region as RouteRegions,
+                },
+              });
           });
-
-          // Collect other info - lineNumber, origin, destination
-          routeOptions.value.push({
-            label: `${data.line_name} ${data.origin} - ${data.destination}`,
-            value: {
-              line: data.line_name,
-              origin: data.origin,
-              destination: data.destination,
-              serviceCode: data.service_code,
-              waypoints: route,
-            },
-          });
-        });
+      });
     });
-  });
+}
 
 const inputNumberProps = ref<InputNumberInterface>({
   ptProps: {
@@ -211,9 +231,12 @@ const findRoutes = () => {
   removeBusLanes();
 
   if (selectedRoutes.value.length !== 0) {
-    selectedRoutes.value.forEach(async (data: RouteOptions) => {
+    selectedRoutes.value.forEach(async (data: RouteOptionDetails) => {
       // fetch data from json directly
-      const busLane: BusLane = await BusLane.generateFromJSON(data.serviceCode);
+      const busLane: BusLane = await BusLane.generateFromJSON(
+        data.region,
+        data.serviceCode
+      );
       const route = new L.Polyline(busLane.routeData.coordinates);
       removeWaypointMarkers();
       route.addTo(demoMap.value as L.Map);
@@ -601,13 +624,19 @@ onUnmounted(() => {
         v-model="selectedRoutes"
         placeholder="Select Routes"
         :disabled="isSimRunning"
+        :pt="{
+          itemGroup: {
+            class: '!mb-4',
+          },
+        }"
         filter
         :options="routeOptions"
         optionLabel="label"
         optionValue="value"
+        optionGroupLabel="label"
+        optionGroupChildren="items"
         :maxSelectedLabels="3"
         :selectionLimit="5"
-        :virtualScrollerOptions="{ itemSize: 25 }"
       />
       <!-- TODO: Refactor -->
       <div class="flex flex-col gap-y-4 items-center border border-[#d4d4d8]">
