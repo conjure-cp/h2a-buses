@@ -497,7 +497,8 @@ const simulate = () => {
           getCost(
             costDataByBusType.value[types[idx]],
             distanceCovered * 1609.34
-          ) / 1609.34; // Scale cost by miles
+          ) /
+          (1609.34 * 100); // Scale cost by miles
 
         populateChartData(totalEmission.value, totalCost.value, types[idx]);
       });
@@ -617,16 +618,15 @@ onUnmounted(() => {
     />
     <apexchart type="line" :options="chartOptionsCost" :series="seriesCost" />
   </div>
-  <div class="absolute top-0 right-0 z-[1001] mt-2 mr-2">
-    <Card class="flex flex-col gap-y-4">
-      <!-- TODO: Improve Chip display?? -->
+  <div class="absolute top-0 right-0 z-[401] mt-2 mr-2">
+    <Card class="flex flex-col gap-y-4 w-[40rem] max-h-80">
       <MultiSelect
         v-model="selectedRoutes"
         placeholder="Select Routes"
         :disabled="isSimRunning"
         :pt="{
-          itemGroup: {
-            class: '!mb-4',
+          root: {
+            class: 'flex-1',
           },
         }"
         filter
@@ -637,11 +637,14 @@ onUnmounted(() => {
         optionGroupChildren="items"
         :maxSelectedLabels="3"
         :selectionLimit="5"
+        :virtualScrollerOptions="{ itemSize: 50 }"
       />
       <!-- TODO: Refactor -->
-      <div class="flex flex-col gap-y-4 items-center border border-[#d4d4d8]">
-        <div class="ml-4 flex flex-row gap-x-2 justify-center">
-          <span class="self-center text-sm">{{ "Cost (£/mile)" }}</span>
+      <div
+        class="flex flex-col gap-y-4 p-4 items-center border border-[#d4d4d8]"
+      >
+        <div class="grid grid-cols-4 gap-x-2">
+          <span class="self-center text-sm">{{ "Cost (£/100miles)" }}</span>
           <div
             v-for="(data, idx) in Object.entries(costDataByBusType)"
             :key="`cost-input-num-${idx}`"
@@ -664,7 +667,12 @@ onUnmounted(() => {
 
             <InputNumber
               :modelValue="costDataByBusType[data[0]]"
-              :inputProps="{ ...inputNumberProps, step: 0.5 }"
+              :inputProps="{
+                ...inputNumberProps,
+                step: 0.05,
+                maxFractionDigits: 2,
+                minFractionDigits: 2,
+              }"
               @increase="
                 (step: number) => {
                   costDataByBusType[data[0]] += step;
@@ -682,7 +690,7 @@ onUnmounted(() => {
             />
           </div>
         </div>
-        <div class="ml-4 flex flex-row gap-x-2 justify-center">
+        <div class="grid grid-cols-4 gap-x-2">
           <span class="self-center text-sm">{{ "CO2 Emission (g/mile)" }}</span>
           <div
             v-for="(data, idx) in Object.entries(emissionDataByBusType)"
@@ -726,71 +734,76 @@ onUnmounted(() => {
         </div>
       </div>
       <div
-        v-for="(lane, idx) in busLanes"
-        class="flex flex-row gap-x-2 justify-center"
-        :key="`num-input-container-${idx}`"
+        v-if="busLanes.length > 0"
+        class="flex flex-col gap-y-4 p-4 items-center border border-[#d4d4d8]"
       >
-        <span class="self-center text-sm">
-          {{ lane.label }}
-        </span>
-        <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-red-500 text-center font-bold">IC</div>
-          <InputNumber
-            :modelValue="lane.numICMarkers"
-            :inputProps="inputNumberProps"
-            @increase="
-              () => {
-                if (lane.numICMarkers! < inputNumberProps.max!)
-                  lane.addMarker('IC');
-              }
-            "
-            @decrease="
-              () => {
-                if (lane.numICMarkers! > inputNumberProps.min!)
-                  lane.removeMarker('IC', lane.numICMarkers!);
-              }
-            "
-          />
-        </div>
-        <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-green-500 text-center font-bold">EV</div>
-          <InputNumber
-            :modelValue="lane.numEVMarkers"
-            :inputProps="inputNumberProps"
-            @increase="
-              () => {
-                if (lane.numEVMarkers! < inputNumberProps.max!)
-                  lane.addMarker('EV');
-              }
-            "
-            @decrease="
-              () => {
-                if (lane.numEVMarkers! > inputNumberProps.min!)
-                  lane.removeMarker('EV', lane.numEVMarkers!);
-              }
-            "
-          />
-        </div>
-        <div class="flex flex-col gap-y-1">
-          <div class="text-sm text-blue-500 text-center font-bold">
-            Hydrogen
+        <div
+          v-for="(lane, idx) in busLanes"
+          class="grid grid-cols-4 gap-x-2"
+          :key="`num-input-container-${idx}`"
+        >
+          <span class="self-center text-sm">
+            {{ lane.label }}
+          </span>
+          <div class="flex flex-col gap-y-1">
+            <div class="text-sm text-red-500 text-center font-bold">IC</div>
+            <InputNumber
+              :modelValue="lane.numICMarkers"
+              :inputProps="inputNumberProps"
+              @increase="
+                () => {
+                  if (lane.numICMarkers! < inputNumberProps.max!)
+                    lane.addMarker('IC');
+                }
+              "
+              @decrease="
+                () => {
+                  if (lane.numICMarkers! > inputNumberProps.min!)
+                    lane.removeMarker('IC', lane.numICMarkers!);
+                }
+              "
+            />
           </div>
-          <InputNumber
-            :modelValue="lane.numHydrogenMarkers"
-            :inputProps="inputNumberProps"
-            @increase="
-              () => {
-                if (lane.numHydrogenMarkers! < inputNumberProps.max!)
-                  lane.addMarker('Hydrogen');
-              }
-            "
-            @decrease="
-              () => {
-                if (lane.numHydrogenMarkers! > inputNumberProps.min!)
-                  lane.removeMarker('Hydrogen', lane.numHydrogenMarkers!);
-              }
-            "
-          />
+          <div class="flex flex-col gap-y-1">
+            <div class="text-sm text-green-500 text-center font-bold">EV</div>
+            <InputNumber
+              :modelValue="lane.numEVMarkers"
+              :inputProps="inputNumberProps"
+              @increase="
+                () => {
+                  if (lane.numEVMarkers! < inputNumberProps.max!)
+                    lane.addMarker('EV');
+                }
+              "
+              @decrease="
+                () => {
+                  if (lane.numEVMarkers! > inputNumberProps.min!)
+                    lane.removeMarker('EV', lane.numEVMarkers!);
+                }
+              "
+            />
+          </div>
+          <div class="flex flex-col gap-y-1">
+            <div class="text-sm text-blue-500 text-center font-bold">
+              Hydrogen
+            </div>
+            <InputNumber
+              :modelValue="lane.numHydrogenMarkers"
+              :inputProps="inputNumberProps"
+              @increase="
+                () => {
+                  if (lane.numHydrogenMarkers! < inputNumberProps.max!)
+                    lane.addMarker('Hydrogen');
+                }
+              "
+              @decrease="
+                () => {
+                  if (lane.numHydrogenMarkers! > inputNumberProps.min!)
+                    lane.removeMarker('Hydrogen', lane.numHydrogenMarkers!);
+                }
+              "
+            />
+          </div>
         </div>
       </div>
       <!-- TODO: Refactor -->
@@ -844,3 +857,4 @@ onUnmounted(() => {
     </Card>
   </div>
 </template>
+<style lang="postcss" scoped></style>
