@@ -11,6 +11,8 @@ route_data_params = {
     "steps": "true",  # Include detailed turn-by-turn instructions
 }
 
+base_url = "https://routing.openstreetmap.de/routed-car/route/v1/driving"
+
 
 def extract_route_data(region: str):
     coordinate_data_source = f"{os.getcwd()}/public/json/{region}"
@@ -26,7 +28,7 @@ def extract_route_data(region: str):
             route_data = dict()
 
             formatted_waypoints = ";".join(f"{lng},{lat}" for lat, lng in waypoints)
-            url = f"https://routing.openstreetmap.de/routed-car/route/v1/driving/{formatted_waypoints}"
+            url = f"{base_url}/{formatted_waypoints}"
 
             response = requests.get(url, params=route_data_params)
             if response.status_code == 200:
