@@ -205,7 +205,7 @@ const inputNumberProps = ref<InputNumberInterface>({
       class: "flex justify-center text-left font-medium h-full",
     },
     input: {
-      root: "order-2 mx-1 w-[35%] px-2 py-1 border text-sm text-center h-full bg-transparent",
+      root: "order-2 mx-1 w-[45%] px-2 py-1 border text-sm text-center h-full bg-transparent",
     },
     incrementButton: {
       root: "order-3 border-0 rounded !cursor-pointer",
@@ -682,7 +682,7 @@ onUnmounted(() => {
                 (step: number) => {
                   if (costDataByBusType[data[0]] > 0.0) {
                     costDataByBusType[data[0]] = Number(
-                      (costDataByBusType[data[0]] - step).toFixed(1)
+                      (costDataByBusType[data[0]] - step).toFixed(2)
                     );
                   }
                 }
