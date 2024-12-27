@@ -24,12 +24,12 @@
     "leaflet-routing-machine": "^3.2.12",
     "leaflet.animatedmarker": "^1.0.0",
     "lodash": "^4.17.21",
-    "vue-chartjs": "^5.3.1",
-    "vue3-apexcharts": "^1.5.3",
     "pinia": "^2.2.8",
-    "primevue": "^3.49.1",
+    "primevue": "^3.53.1",
     "vue": "^3.5.10",
-    "vue-router": "^4.4.5"
+    "vue-chartjs": "^5.3.1",
+    "vue-router": "^4.4.5",
+    "vue3-apexcharts": "^1.5.3"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.10.4",

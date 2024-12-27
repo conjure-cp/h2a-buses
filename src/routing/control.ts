@@ -3,7 +3,12 @@ import "leaflet-routing-machine";
 import { storeToRefs } from "pinia";
 import { busTypeColorMap, downloadJSON } from "@/utils/helper";
 import { useMapStore } from "@/stores/MapStore";
-import type { BusLaneRoute, BusMarkerType, RouteOptions } from "@/utils/types";
+import type {
+  BusLaneRoute,
+  BusMarkerType,
+  RouteOptionDetails,
+  RouteRegions,
+} from "@/utils/types";
 
 export class BusLane {
   line?: string;
@@ -40,22 +45,23 @@ export class BusLane {
    * @param serviceCode
    * @returns BusLane
    */
-  static async generateFromJSON(serviceCode: string) {
+  static async generateFromJSON(region: RouteRegions, serviceCode: string) {
+    try {
+      const data = (await (
+        await fetch(`route-data/${region}/${serviceCode}.json`)
+      ).json()) as BusLane;
 
-    try{
-    const data = await(await fetch(`route-data/${serviceCode}.json`)).json() as BusLane
-    
-    return new BusLane({
-      line: data.line,
-      origin: data.origin,
-      destination: data.destination,
-      serviceCode: data.serviceCode,
-      routeData: data.routeData,
-    });
-  } catch(err) {
-    console.log('err occured while fetching route data from json', err)
-    throw(err)
-  }
+      return new BusLane({
+        line: data.line,
+        origin: data.origin,
+        destination: data.destination,
+        serviceCode: data.serviceCode,
+        routeData: data.routeData,
+      });
+    } catch (err) {
+      console.log("err occured while fetching route data from json", err);
+      throw err;
+    }
   }
 
   constructor(data: {
@@ -89,7 +95,7 @@ export class BusLane {
       ],
       {
         icon: icon,
-        title: type
+        title: type,
       }
     );
 
@@ -118,7 +124,7 @@ export class BusLane {
   }
 }
 
-export const generateRoutingControl = (data: RouteOptions) => {
+export const generateRoutingControl = (data: RouteOptionDetails) => {
   const { demoMap: map } = storeToRefs(useMapStore());
   const { addBusLane, removeWaypointMarkers } = useMapStore();
   /**
