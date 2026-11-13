@@ -1,0 +1,109 @@
+name: Generated HTML, JS and CSS diff
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  html-diff:
+    name: Compare generated HTML, JS and CSS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Build base assets
+        run: |
+          npm ci
+          npm run build
+          test -s dist/index.html
+          mkdir -p "$RUNNER_TEMP/base-assets"
+          find dist -type f \( -name '*.html' -o -name '*.js' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.css' \) -print0 |
+            while IFS= read -r -d '' file; do
+              mkdir -p "$RUNNER_TEMP/base-assets/$(dirname "$file")"
+              cp "$file" "$RUNNER_TEMP/base-assets/$file"
+            done
+
+      - name: Checkout PR head
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Build PR assets
+        run: |
+          npm ci
+          npm run build
+          test -s dist/index.html
+          mkdir -p "$RUNNER_TEMP/head-assets"
+          find dist -type f \( -name '*.html' -o -name '*.js' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.css' \) -print0 |
+            while IFS= read -r -d '' file; do
+              mkdir -p "$RUNNER_TEMP/head-assets/$(dirname "$file")"
+              cp "$file" "$RUNNER_TEMP/head-assets/$file"
+            done
+
+      - name: Compare generated assets
+        id: diff
+        working-directory: ${{ runner.temp }}
+        run: |
+          status=0
+          diff -ru base-assets/dist head-assets/dist > generated-assets.diff || status=$?
+          if [ "$status" -gt 1 ]; then
+            echo "::error::Could not compare the generated assets (diff exited with $status)."
+            exit "$status"
+          fi
+
+          if [ "$status" -eq 1 ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            status=0
+            diff -rq base-assets/dist head-assets/dist > generated-assets-summary.txt || status=$?
+            if [ "$status" -gt 1 ]; then
+              echo "::error::Could not summarize the generated asset changes (diff exited with $status)."
+              exit "$status"
+            fi
+            {
+              echo "## Generated HTML, JS or CSS changed"
+              echo
+              echo "Generated files must match the base branch byte-for-byte, including filenames and asset hashes. No content is normalized."
+              echo "Review the uploaded \`generated-assets-diff\` artifact for the full diff."
+              echo
+              echo '```text'
+              head -c 20000 generated-assets-summary.txt
+              echo
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Generated HTML, JS and CSS unchanged"
+              echo
+              echo "All generated HTML, JS and CSS files match the base branch byte-for-byte, including filenames and asset hashes."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload generated asset diff
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-assets-diff
+          path: |
+            ${{ runner.temp }}/generated-assets.diff
+            ${{ runner.temp }}/generated-assets-summary.txt
+          if-no-files-found: error
+
+      - name: Fail on generated asset changes
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          echo "::error::Generated HTML, JS or CSS differs from the base branch. Review the generated-assets-diff artifact and job summary."
+          exit 1

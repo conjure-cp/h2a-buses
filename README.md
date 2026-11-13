@@ -45,6 +45,13 @@ npm run dev
 npm run build
 ```
 
+Pull requests also build the base and head revisions with clean dependencies and
+compare every generated HTML, JavaScript (`.js`, `.mjs`, `.cjs`), and CSS file in
+`dist/`. The check fails on any byte or filename difference, including asset
+hashes; nothing is normalized. Changed files appear in the job summary, and the
+`generated-assets-diff` artifact contains the full diff. Intentional build-output
+changes therefore also fail this comparison and need review.
+
 ### Lint with [ESLint](https://eslint.org/)
 
 ```sh
