@@ -21,9 +21,17 @@ See [Vite Configuration Reference](https://vitejs.dev/config/).
 
 ## Project Setup
 
+Use Node.js 24 (see `.node-version`), matching the build and deployment workflows.
+
 ```sh
-npm install
+npm ci
 ```
+
+The `typescript` dependency uses Microsoft's `@typescript/typescript6` compatibility
+package because the Vue type checker and TypeScript ESLint still require the
+JavaScript compiler API removed in TypeScript 7. PrimeVue, its theme, and the
+ApexCharts packages stay on their latest MIT releases; Dependabot excludes
+subsequent releases that change their licenses.
 
 ### Compile and Hot-Reload for Development
 

@@ -79,7 +79,10 @@ const isEmissionChartDataEmpty = computed(() => {
 const chartOptionsEmission = ref(chartConfig.apexChartOptions);
 chartOptionsEmission.value = {
   ...chartOptionsEmission.value,
-  id: "realtime-emissions-chart",
+  chart: {
+    ...chartConfig.apexChartOptions.chart,
+    id: "realtime-emissions-chart",
+  },
   title: {
     text: "Emission",
     align: "center",
@@ -127,7 +130,10 @@ const costsHydrogenData = ref<number[]>([]);
 const chartOptionsCost = ref(chartConfig.apexChartOptions);
 chartOptionsCost.value = {
   ...chartOptionsCost.value,
-  id: "realtime-costs-chart",
+  chart: {
+    ...chartConfig.apexChartOptions.chart,
+    id: "realtime-costs-chart",
+  },
   title: {
     text: "Cost",
     align: "center",
@@ -204,19 +210,19 @@ const inputNumberProps = ref<InputNumberInterface>({
     root: {
       class: "flex justify-center text-left font-medium h-full",
     },
-    input: {
+    pcInputText: {
       root: "order-2 mx-1 w-[45%] px-2 py-1 border text-sm text-center h-full bg-transparent",
     },
     incrementButton: {
-      root: "order-3 border-0 rounded !cursor-pointer",
+      class: "order-3 border-0 rounded-sm cursor-pointer!",
     },
     decrementButton: {
-      root: "order-1 border-0 rounded !cursor-pointer",
+      class: "order-1 border-0 rounded-sm cursor-pointer!",
     },
   },
   min: 0,
   max: 3,
-  isDisabled: true,
+  isReadonly: true,
   inputWrapper: " basis-1/3",
 });
 
@@ -811,7 +817,7 @@ onUnmounted(() => {
         <button
           type="button"
           :disabled="isSimRunning"
-          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-hidden focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="findRoutes"
         >
           <i class="fa-solid fa-route mr-2" />
@@ -821,7 +827,7 @@ onUnmounted(() => {
         <button
           type="button"
           :disabled="busMarkers.length === 0 || isSimRunning ? true : false"
-          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-hidden focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="
             () => {
               startSimulation();
@@ -834,7 +840,7 @@ onUnmounted(() => {
         <button
           type="button"
           :disabled="!isSimRunning"
-          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-hidden focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="
             () => {
               stopSimulation();
@@ -847,7 +853,7 @@ onUnmounted(() => {
 
         <!-- <button
           type="button"
-          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
+          class="text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-hidden focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 self-center flex-initial w-36 flex items-center mt-2"
           @click="downloadAll"
         >
           <i class="fa-solid fa-download mr-2" />
