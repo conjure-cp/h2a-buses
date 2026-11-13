@@ -6,6 +6,17 @@ updates:
       interval: "monthly"
     assignees:
       - "ozgurakgun"
+    ignore:
+      # Newer majors require PrimeUI license keys; keep the MIT releases.
+      - dependency-name: "primevue"
+        versions: [">=5"]
+      - dependency-name: "@primeuix/themes"
+        versions: [">=3"]
+      # Later chart releases also move away from MIT licensing.
+      - dependency-name: "apexcharts"
+        versions: [">=5"]
+      - dependency-name: "vue3-apexcharts"
+        versions: [">=1.9"]
     groups:
       all-npm-packages:
         patterns:

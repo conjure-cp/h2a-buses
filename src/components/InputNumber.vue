@@ -12,7 +12,7 @@ export interface InputNumberInterface {
   inputUnit?: string;
   inputName?: string;
   isIncreamentButton?: boolean;
-  isDisabled: boolean;
+  isReadonly: boolean;
   inputWrapper: string;
   mode?: any;
   useGrouping?: boolean;
@@ -55,7 +55,7 @@ const inputModel = computed({
 
     <InputNumber
       unstyled
-      :disabled="props.inputProps.isDisabled"
+      :readonly="props.inputProps.isReadonly"
       v-model="inputModel"
       :placeholder="props.inputProps.placeholder"
       :pt="inputProps.ptProps"
@@ -71,13 +71,13 @@ const inputModel = computed({
       buttonLayout="horizontal"
       :step="props.inputProps.step"
     >
-      <template #incrementbuttonicon>
+      <template #incrementicon>
         <span
           class="fa-solid fa-plus"
           @click="emit('increase', props.inputProps.step)"
         />
       </template>
-      <template #decrementbuttonicon>
+      <template #decrementicon>
         <span
           class="fa-solid fa-minus"
           @click="emit('decrease', props.inputProps.step)"

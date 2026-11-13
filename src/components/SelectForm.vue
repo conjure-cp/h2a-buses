@@ -23,7 +23,7 @@ const props = defineProps<IProps>();
       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
     >
       <option selected disabled value="">Please select a route</option>
-      <option v-for="(data, idx) in props.options" :value="idx">
+      <option v-for="(data, idx) in props.options" :key="idx" :value="idx">
         {{ `${data.lineName}(${data.origin} - ${data.destination})` }}
       </option>
     </select>
